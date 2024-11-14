@@ -1,0 +1,18 @@
+[Details]
+  Icon = "assets/wallet-icon.png"
+  Name = "balance"
+  ID = "slotopol.balance"
+  Version = "0.0.0"
+  Build = 12
+
+[Development]
+  HelperText = "This binary was built with debug symbols"
+
+[Release]
+  HelperText = "This binary was built without debug symbols"
+
+[LinuxAndBSD]
+  GenericName = "Slotopol Balance"
+  Categories = ["Games"]
+  Comment = "Helps to add money to users wallets on Slotopol Server."
+  Keywords = ["slot", "casino", "gambling"]
