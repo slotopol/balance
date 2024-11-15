@@ -1,6 +1,7 @@
 package core
 
 import (
+	"strings"
 	"time"
 
 	cfg "github.com/slotopol/balance/config"
@@ -51,4 +52,24 @@ func GetProp(cid uint64, user *User) (p Props, err error) {
 	}
 	user.props[curcid] = p
 	return
+}
+
+func FormatAL(al AL) string {
+	var items = make([]string, 0, 5)
+	if al&ALmem != 0 {
+		items = append(items, "member")
+	}
+	if al&ALgame != 0 {
+		items = append(items, "game")
+	}
+	if al&ALuser != 0 {
+		items = append(items, "user")
+	}
+	if al&ALclub != 0 {
+		items = append(items, "club")
+	}
+	if al&ALadmin != 0 {
+		items = append(items, "admin")
+	}
+	return strings.Join(items, ", ")
 }

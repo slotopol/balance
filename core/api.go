@@ -74,10 +74,31 @@ type (
 		XMLName xml.Name   `json:"-" yaml:"-" xml:"ret"`
 		List    []clubitem `json:"list" yaml:"list" xml:"list>club" form:"list"`
 	}
+	ArgClubInfo struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+	}
+	RetClubInfo struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
+		Name    string   `json:"name,omitempty" yaml:"name,omitempty" xml:"name,omitempty"`
+		Bank    float64  `json:"bank" yaml:"bank" xml:"bank"` // users win/lost balance, in coins
+		Fund    float64  `json:"fund" yaml:"fund" xml:"fund"` // jackpot fund, in coins
+		Lock    float64  `json:"lock" yaml:"lock" xml:"lock"` // not changed deposit within games
+		Rate    float64  `json:"rate" yaml:"rate" xml:"rate"` // jackpot rate for games with progressive jackpot
+		MRTP    float64  `json:"mrtp" yaml:"mrtp" xml:"mrtp"` // master RTP
+	}
 )
 
 func ApiClubList() (ret RetClubList, err error) {
 	ret, _, err = HttpPost[any, RetClubList]("/club/list", admin.Access, nil)
+	return
+}
+
+func ApiClubInfo(cid uint64) (ret RetClubInfo, err error) {
+	var arg = ArgClubInfo{
+		CID: cid,
+	}
+	ret, _, err = HttpPost[ArgClubInfo, RetClubInfo]("/club/info", admin.Access, &arg)
 	return
 }
 
@@ -96,6 +117,26 @@ type (
 	RetWalletGet struct {
 		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
 		Wallet  float64  `json:"wallet" yaml:"wallet" xml:"wallet"`
+	}
+	ArgAccessGet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		UID     uint64   `json:"uid" yaml:"uid" xml:"uid,attr"`
+		All     bool     `json:"all" yaml:"all" xml:"all,attr"`
+	}
+	RetAccessGet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
+		Access  AL       `json:"access" yaml:"access" xml:"access"`
+	}
+	ArgRtpGet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		UID     uint64   `json:"uid" yaml:"uid" xml:"uid,attr"`
+		All     bool     `json:"all" yaml:"all" xml:"all,attr"`
+	}
+	RetRtpGet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
+		MRTP    float64  `json:"mrtp" yaml:"mrtp" xml:"mrtp"`
 	}
 )
 
@@ -123,5 +164,29 @@ func ApiWalletGet(cid, uid uint64) (sum float64, err error) {
 	var ret RetWalletGet
 	ret, _, err = HttpPost[ArgPropGet, RetWalletGet]("/prop/wallet/get", admin.Access, &arg)
 	sum = ret.Wallet
+	return
+}
+
+func ApiAccessGet(cid, uid uint64, all bool) (al AL, err error) {
+	var arg = ArgAccessGet{
+		CID: cid,
+		UID: uid,
+		All: all,
+	}
+	var ret RetAccessGet
+	ret, _, err = HttpPost[ArgAccessGet, RetAccessGet]("/prop/al/get", admin.Access, &arg)
+	al = ret.Access
+	return
+}
+
+func ApiRtpGet(cid, uid uint64, all bool) (mrtp float64, err error) {
+	var arg = ArgRtpGet{
+		CID: cid,
+		UID: uid,
+		All: all,
+	}
+	var ret RetRtpGet
+	ret, _, err = HttpPost[ArgRtpGet, RetRtpGet]("/prop/rtp/get", admin.Access, &arg)
+	mrtp = ret.MRTP
 	return
 }
