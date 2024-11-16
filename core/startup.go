@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"log"
-	"strconv"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -12,37 +11,6 @@ import (
 
 	cfg "github.com/slotopol/balance/config"
 )
-
-var Foreground bool
-
-var (
-	admwnd   = widget.NewLabel("not logined yet")
-	clubtabs = &container.AppTabs{}
-	userlist *widget.Table
-	curcid   uint64
-	cural    AL
-)
-
-var colhdr = []string{
-	"email", "wallet", "MRTP", "access",
-}
-
-func RefreshContent() {
-	var err error
-
-	userlist.Refresh()
-
-	var label = clubtabs.Selected().Content.(*widget.Label)
-	var bank, fund, deposit = "N/A", "N/A", "N/A"
-	if cural&ALclub != 0 {
-		var info RetClubInfo
-		if info, err = ApiClubInfo(curcid); err != nil {
-			return
-		}
-		bank, fund, deposit = fmt.Sprintf("%.2f", info.Bank), fmt.Sprintf("%.2f", info.Fund), fmt.Sprintf("%.2f", info.Lock)
-	}
-	label.SetText(fmt.Sprintf("bank: %s, jackpot fund: %s, deposit: %s", bank, fund, deposit))
-}
 
 func MakeSignIn() (err error) {
 	if err = cfg.ReadCredentials(); err != nil {
@@ -53,7 +21,7 @@ func MakeSignIn() (err error) {
 	if admin, err = ApiSignIn(cfg.Credentials.Email, cfg.Credentials.Secret); err != nil {
 		return
 	}
-	admwnd.SetText(fmt.Sprintf("logined as '%s'", cfg.Credentials.Email))
+	loginTxt.SetText(fmt.Sprintf(cfg.Credentials.Email))
 	log.Printf("signed as '%s'", cfg.Credentials.Email)
 	return
 }
@@ -109,16 +77,18 @@ func MakeUserList() (err error) {
 		user.props = map[uint64]Props{} // make new empty map
 		Users[email] = user
 	}
-	go func() {
-		var c = time.Tick(Cfg.PropUpdateTick)
-		for range c {
-			if Foreground {
-				RefreshContent()
-			}
-		}
-	}()
+	go RefreshLoop()
 	log.Printf("users list ready, %d users", len(Users))
 	return
+}
+
+func RefreshLoop() {
+	var c = time.Tick(Cfg.PropUpdateTick)
+	for range c {
+		if Foreground {
+			RefreshContent()
+		}
+	}
 }
 
 func WaitToken() (err error) {
@@ -149,97 +119,18 @@ func StartupChain() {
 	}
 }
 
-func Lifecycle(a fyne.App) {
-	var l = a.Lifecycle()
-	l.SetOnStarted(func() {
-		log.Println("lifecycle: started")
-	})
-	l.SetOnStopped(func() {
-		log.Println("lifecycle: stopped")
-	})
-	l.SetOnEnteredForeground(func() {
-		Foreground = true
-		log.Println("lifecycle: entered foreground")
-	})
-	l.SetOnExitedForeground(func() {
-		Foreground = false
-		log.Println("lifecycle: exited foreground")
-	})
-}
-
 func CreateMainWindow(a fyne.App) fyne.Window {
 	var w = a.NewWindow("Balance")
 
-	userlist = widget.NewTableWithHeaders(
-		func() (int, int) { return len(cfg.UserList), 4 },
-		func() fyne.CanvasObject {
-			var label = widget.NewLabel("")
-			label.Truncation = fyne.TextTruncateClip
-			return label
-		},
-		func(id widget.TableCellID, cell fyne.CanvasObject) {
-			var err error
+	w.SetContent(mainPage)
+	go StartupChain()
+	go WaitToken()
 
-			var label = cell.(*widget.Label)
-			var user, ok = Users[cfg.UserList[id.Row]]
-			if !ok {
-				label.SetText("error")
-				return
-			}
-			if id.Col == 0 { // email
-				label.SetText(cfg.UserList[id.Row])
-				return
-			}
-			if cural&ALuser == 0 {
-				label.SetText("N/A")
-				return
-			}
-			var prop Props
-			if prop, err = GetProp(curcid, &user); err != nil {
-				label.SetText("error")
-				return
-			}
-			switch id.Col {
-			case 1: // wallet
-				label.SetText(fmt.Sprintf("%.2f", prop.Wallet))
-			case 2: // mtrp
-				if prop.MRTP > 0 {
-					label.SetText(fmt.Sprintf("%g%%", prop.MRTP))
-				} else {
-					label.SetText("-")
-				}
-			case 3: // access
-				label.SetText(FormatAL(prop.Access))
-			}
-		})
 	userlist.SetColumnWidth(0, 180) // email
 	userlist.SetColumnWidth(1, 100) // wallet
 	userlist.SetColumnWidth(2, 50)  // mtrp
 	userlist.SetColumnWidth(3, 150) // access
-	userlist.UpdateHeader = func(id widget.TableCellID, cell fyne.CanvasObject) {
-		var label = cell.(*widget.Label)
-		if id.Row < 0 {
-			label.SetText(colhdr[id.Col])
-		} else if id.Col < 0 {
-			var user, ok = Users[cfg.UserList[id.Row]]
-			if !ok {
-				label.SetText("error")
-				return
-			}
-			label.SetText(strconv.Itoa(int(user.UID)))
-		} else {
-			label.SetText("")
-		}
-	}
-
-	var frame = container.NewBorder(
-		container.NewVBox(admwnd, clubtabs),
-		nil, nil, nil,
-		userlist)
-	w.SetContent(frame)
-	go StartupChain()
-	go WaitToken()
-
-	w.Resize(fyne.NewSize(540, 720))
+	userlist.ExtendBaseWidget(userlist)
+	w.Resize(fyne.NewSize(540, 640))
 	return w
 }
