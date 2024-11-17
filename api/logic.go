@@ -1,7 +1,6 @@
-package core
+package api
 
 import (
-	"strings"
 	"time"
 
 	cfg "github.com/slotopol/balance/config"
@@ -36,40 +35,28 @@ type (
 
 var (
 	Clubs = map[string]uint64{}
-	Users = map[string]User{}
+	Users = map[string]*User{}
 	Cfg   = cfg.Cfg // shortcut
 )
 
-func GetProp(cid uint64, user *User) (p Props, err error) {
+func (p Props) Expired() bool {
 	const lag = 20 * time.Millisecond // for refresh synchronization
-	p = user.props[curcid]
 	var d = time.Since(p.last)
-	if d < Cfg.PropUpdateTick-lag {
-		return // return cached
-	}
-	if p, err = ApiPropGet(curcid, user.UID); err != nil {
+	return d < Cfg.PropUpdateTick-lag
+}
+
+func (u *User) GetProps(cid uint64) (p Props, ok bool) {
+	if u.props == nil {
+		u.props = map[uint64]Props{} // make new empty map
 		return
 	}
-	user.props[curcid] = p
+	p, ok = u.props[cid]
 	return
 }
 
-func FormatAL(al AL) string {
-	var items = make([]string, 0, 5)
-	if al&ALmem != 0 {
-		items = append(items, "member")
+func (u *User) SetProps(cid uint64, p Props) {
+	if u.props == nil {
+		u.props = map[uint64]Props{} // make new empty map
 	}
-	if al&ALgame != 0 {
-		items = append(items, "game")
-	}
-	if al&ALuser != 0 {
-		items = append(items, "user")
-	}
-	if al&ALclub != 0 {
-		items = append(items, "club")
-	}
-	if al&ALadmin != 0 {
-		items = append(items, "admin")
-	}
-	return strings.Join(items, ", ")
+	u.props[cid] = p
 }

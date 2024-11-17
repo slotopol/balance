@@ -1,9 +1,11 @@
-package core
+package api
 
 import (
 	"encoding/xml"
 	"time"
 )
+
+var Admin AuthResp
 
 type (
 	ArgSignIs struct {
@@ -37,19 +39,19 @@ type (
 	}
 )
 
-func ApiSignIs(email string) (user User, err error) {
+func ReqSignIs(email string) (user User, err error) {
 	var arg = ArgSignIs{
 		Email: email,
 	}
 	var ret RetSignIs
-	ret, _, err = HttpPost[ArgSignIs, RetSignIs]("/user/is", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgSignIs, RetSignIs]("/user/is", Admin.Access, &arg)
 	user.UID = ret.UID
 	user.Email = ret.Email
 	user.Name = ret.Name
 	return
 }
 
-func ApiSignIn(email, secret string) (ret AuthResp, err error) {
+func ReqSignIn(email, secret string) (ret AuthResp, err error) {
 	var arg ArgSignIn
 	arg.Email = email
 	arg.Secret = secret
@@ -57,8 +59,8 @@ func ApiSignIn(email, secret string) (ret AuthResp, err error) {
 	return
 }
 
-func ApiRefresh() (ret AuthResp, err error) {
-	ret, _, err = HttpPost[any, AuthResp]("/refresh", admin.Access, nil)
+func ReqRefresh() (ret AuthResp, err error) {
+	ret, _, err = HttpPost[any, AuthResp]("/refresh", Admin.Access, nil)
 	return
 }
 
@@ -87,16 +89,16 @@ type (
 	}
 )
 
-func ApiClubList() (ret RetClubList, err error) {
-	ret, _, err = HttpPost[any, RetClubList]("/club/list", admin.Access, nil)
+func ReqClubList() (ret RetClubList, err error) {
+	ret, _, err = HttpPost[any, RetClubList]("/club/list", Admin.Access, nil)
 	return
 }
 
-func ApiClubInfo(cid uint64) (ret RetClubInfo, err error) {
+func ReqClubInfo(cid uint64) (ret RetClubInfo, err error) {
 	var arg = ArgClubInfo{
 		CID: cid,
 	}
-	ret, _, err = HttpPost[ArgClubInfo, RetClubInfo]("/club/info", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgClubInfo, RetClubInfo]("/club/info", Admin.Access, &arg)
 	return
 }
 
@@ -138,13 +140,13 @@ type (
 	}
 )
 
-func ApiPropGet(cid, uid uint64) (p Props, err error) {
+func ReqPropGet(cid, uid uint64) (p Props, err error) {
 	var arg = ArgPropGet{
 		CID: cid,
 		UID: uid,
 	}
 	var ret RetPropGet
-	ret, _, err = HttpPost[ArgPropGet, RetPropGet]("/prop/get", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgPropGet, RetPropGet]("/prop/get", Admin.Access, &arg)
 	p = Props{
 		Wallet: ret.Wallet,
 		Access: ret.Access,
@@ -154,37 +156,37 @@ func ApiPropGet(cid, uid uint64) (p Props, err error) {
 	return
 }
 
-func ApiWalletGet(cid, uid uint64) (sum float64, err error) {
+func ReqWalletGet(cid, uid uint64) (sum float64, err error) {
 	var arg = ArgPropGet{
 		CID: cid,
 		UID: uid,
 	}
 	var ret RetWalletGet
-	ret, _, err = HttpPost[ArgPropGet, RetWalletGet]("/prop/wallet/get", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgPropGet, RetWalletGet]("/prop/wallet/get", Admin.Access, &arg)
 	sum = ret.Wallet
 	return
 }
 
-func ApiAccessGet(cid, uid uint64, all bool) (al AL, err error) {
+func ReqAccessGet(cid, uid uint64, all bool) (al AL, err error) {
 	var arg = ArgAccessGet{
 		CID: cid,
 		UID: uid,
 		All: all,
 	}
 	var ret RetAccessGet
-	ret, _, err = HttpPost[ArgAccessGet, RetAccessGet]("/prop/al/get", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgAccessGet, RetAccessGet]("/prop/al/get", Admin.Access, &arg)
 	al = ret.Access
 	return
 }
 
-func ApiRtpGet(cid, uid uint64, all bool) (mrtp float64, err error) {
+func ReqRtpGet(cid, uid uint64, all bool) (mrtp float64, err error) {
 	var arg = ArgRtpGet{
 		CID: cid,
 		UID: uid,
 		All: all,
 	}
 	var ret RetRtpGet
-	ret, _, err = HttpPost[ArgRtpGet, RetRtpGet]("/prop/rtp/get", admin.Access, &arg)
+	ret, _, err = HttpPost[ArgRtpGet, RetRtpGet]("/prop/rtp/get", Admin.Access, &arg)
 	mrtp = ret.MRTP
 	return
 }

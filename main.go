@@ -3,13 +3,13 @@ package main
 import (
 	"fyne.io/fyne/v2/app"
 
-	"github.com/slotopol/balance/core"
+	"github.com/slotopol/balance/ui"
 )
 
 func main() {
 	var a = app.NewWithID("slotopol.balance")
-	core.Lifecycle(a)
-	var frame = &core.Frame{}
+	ui.Lifecycle(a)
+	var frame = &ui.Frame{}
 	frame.CreateWindow(a)
 	frame.ShowAndRun()
 }

@@ -1,4 +1,4 @@
-package core
+package ui
 
 import (
 	"fmt"
@@ -9,10 +9,9 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 
+	"github.com/slotopol/balance/api"
 	cfg "github.com/slotopol/balance/config"
 )
-
-var admin AuthResp
 
 func (f *Frame) MakeSignIn() (err error) {
 	if err = cfg.ReadCredentials(); err != nil {
@@ -20,7 +19,7 @@ func (f *Frame) MakeSignIn() (err error) {
 		err = nil // skip this error
 		return
 	}
-	if admin, err = ApiSignIn(cfg.Credentials.Email, cfg.Credentials.Secret); err != nil {
+	if api.Admin, err = api.ReqSignIn(cfg.Credentials.Email, cfg.Credentials.Secret); err != nil {
 		return
 	}
 	f.loginTxt.SetText(fmt.Sprintf(cfg.Credentials.Email))
@@ -29,15 +28,15 @@ func (f *Frame) MakeSignIn() (err error) {
 }
 
 func (f *Frame) MakeClubList() (err error) {
-	var cl RetClubList
-	if cl, err = ApiClubList(); err != nil {
+	var cl api.RetClubList
+	if cl, err = api.ReqClubList(); err != nil {
 		return
 	}
 
-	clear(Clubs)
+	clear(api.Clubs)
 	var tabs = make([]*container.TabItem, len(cl.List))
 	for i, item := range cl.List {
-		Clubs[item.Name] = item.CID
+		api.Clubs[item.Name] = item.CID
 		tabs[i] = container.NewTabItem(item.Name, widget.NewLabel(""))
 	}
 	f.clubTabs.SetItems(tabs)
@@ -46,10 +45,10 @@ func (f *Frame) MakeClubList() (err error) {
 		var err error
 
 		var ok bool
-		if curcid, ok = Clubs[tab.Text]; !ok {
+		if curcid, ok = api.Clubs[tab.Text]; !ok {
 			return
 		}
-		if cural, err = ApiAccessGet(curcid, admin.UID, true); err != nil {
+		if cural, err = api.ReqAccessGet(curcid, api.Admin.UID, true); err != nil {
 			return
 		}
 
@@ -57,7 +56,7 @@ func (f *Frame) MakeClubList() (err error) {
 	}
 	f.clubTabs.OnSelected(f.clubTabs.Selected())
 
-	log.Printf("clubs list ready, %d clubs", len(Clubs))
+	log.Printf("clubs list ready, %d clubs", len(api.Clubs))
 	return
 }
 
@@ -67,8 +66,8 @@ func (f *Frame) MakeUserList() (err error) {
 		err = nil // skip this error
 	}
 	for i, email := range cfg.UserList {
-		var user User
-		if user, err = ApiSignIs(email); err != nil {
+		var user api.User
+		if user, err = api.ReqSignIs(email); err != nil {
 			return
 		}
 		if user.UID == 0 {
@@ -76,11 +75,10 @@ func (f *Frame) MakeUserList() (err error) {
 			log.Printf("user with email '%s' presents in yaml list but absent in server database, skipped", email)
 			continue
 		}
-		user.props = map[uint64]Props{} // make new empty map
-		Users[email] = user
+		api.Users[email] = &user
 	}
 	go f.RefreshLoop()
-	log.Printf("users list ready, %d users", len(Users))
+	log.Printf("users list ready, %d users", len(api.Users))
 	return
 }
 
@@ -97,7 +95,7 @@ func WaitToken() (err error) {
 	for {
 		var t time.Time
 		for {
-			if t, err = time.Parse(admin.Expire, time.RFC3339); err != nil {
+			if t, err = time.Parse(api.Admin.Expire, time.RFC3339); err != nil {
 				return
 			}
 			if !t.IsZero() {
@@ -107,7 +105,7 @@ func WaitToken() (err error) {
 		}
 		// get tokens before expire
 		<-time.After(time.Until(t.Add(-15 * time.Second)))
-		if admin, err = ApiRefresh(); err != nil {
+		if api.Admin, err = api.ReqRefresh(); err != nil {
 			return
 		}
 	}
@@ -137,4 +135,10 @@ func (f *Frame) CreateWindow(a fyne.App) {
 	w.Resize(fyne.NewSize(540, 640))
 	w.SetContent(f.mainPage)
 	f.Window = w
+
+	f.userTable.SetColumnWidth(0, 180) // email
+	f.userTable.SetColumnWidth(1, 100) // wallet
+	f.userTable.SetColumnWidth(2, 50)  // mtrp
+	f.userTable.SetColumnWidth(3, 150) // access
+	f.userTable.ExtendBaseWidget(f.userTable)
 }

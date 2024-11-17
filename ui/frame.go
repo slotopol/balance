@@ -1,14 +1,16 @@
-package core
+package ui
 
 import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
+	"github.com/slotopol/balance/api"
 	cfg "github.com/slotopol/balance/config"
 )
 
@@ -18,7 +20,11 @@ var Foreground bool
 
 var (
 	curcid uint64 // current selected at tab club ID
-	cural  AL     // access level of loggined account for current selected club
+	cural  api.AL // access level of loggined account for current selected club
+)
+
+var (
+	Cfg = cfg.Cfg // shortcut
 )
 
 // Label compatible with ToolbarItem interface to insert into Toolbar.
@@ -76,6 +82,37 @@ func (l FitLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 		minSize = minSize.Max(child.MinSize())
 	}
 	return minSize
+}
+
+func GetProp(cid uint64, user *api.User) (p api.Props, err error) {
+	if p, _ = user.GetProps(curcid); !p.Expired() {
+		return // return cached
+	}
+	if p, err = api.ReqPropGet(curcid, user.UID); err != nil {
+		return
+	}
+	user.SetProps(curcid, p)
+	return
+}
+
+func FormatAL(al api.AL) string {
+	var items = make([]string, 0, 5)
+	if al&api.ALmem != 0 {
+		items = append(items, "member")
+	}
+	if al&api.ALgame != 0 {
+		items = append(items, "game")
+	}
+	if al&api.ALuser != 0 {
+		items = append(items, "user")
+	}
+	if al&api.ALclub != 0 {
+		items = append(items, "club")
+	}
+	if al&api.ALadmin != 0 {
+		items = append(items, "admin")
+	}
+	return strings.Join(items, ", ")
 }
 
 type Frame struct {
@@ -155,7 +192,7 @@ func (p *MainPage) Create() {
 			var err error
 
 			var label = cell.(*widget.Label)
-			var user, ok = Users[cfg.UserList[id.Row]]
+			var user, ok = api.Users[cfg.UserList[id.Row]]
 			if !ok {
 				label.SetText("error")
 				return
@@ -164,12 +201,12 @@ func (p *MainPage) Create() {
 				label.SetText(cfg.UserList[id.Row])
 				return
 			}
-			if cural&ALuser == 0 {
+			if cural&api.ALuser == 0 {
 				label.SetText("N/A")
 				return
 			}
-			var prop Props
-			if prop, err = GetProp(curcid, &user); err != nil {
+			var prop api.Props
+			if prop, err = GetProp(curcid, user); err != nil {
 				label.SetText("error")
 				return
 			}
@@ -191,7 +228,7 @@ func (p *MainPage) Create() {
 			if id.Row < 0 {
 				label.SetText(colhdr[id.Col])
 			} else if id.Col < 0 {
-				var user, ok = Users[cfg.UserList[id.Row]]
+				var user, ok = api.Users[cfg.UserList[id.Row]]
 				if !ok {
 					label.SetText("error")
 					return
@@ -204,11 +241,6 @@ func (p *MainPage) Create() {
 		ShowHeaderRow:    true,
 		ShowHeaderColumn: true,
 	}
-	p.userTable.SetColumnWidth(0, 180) // email
-	p.userTable.SetColumnWidth(1, 100) // wallet
-	p.userTable.SetColumnWidth(2, 50)  // mtrp
-	p.userTable.SetColumnWidth(3, 150) // access
-	p.userTable.ExtendBaseWidget(p.userTable)
 
 	// Main page
 	p.mainPage = container.NewStack(
@@ -229,9 +261,9 @@ func (p *MainPage) RefreshContent() {
 
 	var label = p.clubTabs.Selected().Content.(*widget.Label)
 	var bank, fund, deposit = "N/A", "N/A", "N/A"
-	if cural&ALclub != 0 {
-		var info RetClubInfo
-		if info, err = ApiClubInfo(curcid); err != nil {
+	if cural&api.ALclub != 0 {
+		var info api.RetClubInfo
+		if info, err = api.ReqClubInfo(curcid); err != nil {
 			return
 		}
 		bank, fund, deposit = fmt.Sprintf("%.2f", info.Bank), fmt.Sprintf("%.2f", info.Fund), fmt.Sprintf("%.2f", info.Lock)
