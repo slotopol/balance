@@ -3,9 +3,11 @@ package core
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"strconv"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/widget"
 	cfg "github.com/slotopol/balance/config"
@@ -42,7 +44,62 @@ func (tl *ToolbarLabel) ToolbarObject() fyne.CanvasObject {
 	return tl
 }
 
+// Layout that fits the images to whole space and cuts edges if it needs.
+type FitLayout struct {
+}
+
+func (l FitLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
+	var ratiofit = size.Width / size.Height
+	for _, child := range objects {
+		var newsize = size
+		var pos = fyne.NewPos(0, 0)
+		if img, ok := child.(*canvas.Image); ok {
+			var ratioimg = img.Aspect()
+			if ratiofit > ratioimg {
+				newsize.Height = size.Width / ratioimg
+				pos.Y = (size.Height - newsize.Height) / 2
+			} else {
+				newsize.Width = size.Height * ratioimg
+				pos.Y = (size.Width - newsize.Width) / 2
+			}
+		}
+		child.Resize(newsize)
+		child.Move(pos)
+	}
+}
+
+func (l FitLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
+	var minSize = fyne.NewSize(0, 0)
+	for _, child := range objects {
+		if !child.Visible() {
+			continue
+		}
+		minSize = minSize.Max(child.MinSize())
+	}
+	return minSize
+}
+
+var underlays = []*fyne.StaticResource{
+	underlay1ImgRes,
+	underlay2ImgRes,
+	underlay3ImgRes,
+	underlay4ImgRes,
+	underlay5ImgRes,
+	underlay6ImgRes,
+	underlay7ImgRes,
+	underlay8ImgRes,
+	underlay9ImgRes,
+	underlay10ImgRes,
+}
+
 var (
+	// Backgroud image
+	underlay = &canvas.Image{
+		Resource:     underlays[rand.N(len(underlays))],
+		FillMode:     canvas.ImageFillContain,
+		Translucency: 0.85,
+	}
+
 	// Toolbar buttons
 	useraddBut = widget.NewToolbarAction(useraddIconRes, func() { fmt.Println("useradd") })
 	userdelBut = widget.NewToolbarAction(userdelIconRes, func() { fmt.Println("userdel") })
@@ -134,10 +191,13 @@ var (
 	}
 
 	// Main page
-	mainPage = container.NewBorder(
-		container.NewVBox(toolbar, clubtabs),
-		nil, nil, nil,
-		userlist)
+	mainPage = container.NewStack(
+		container.New(FitLayout{}, underlay),
+		container.NewBorder(
+			container.NewVBox(toolbar, clubtabs),
+			nil, nil, nil,
+			userlist),
+	)
 )
 
 // Refreshes visible content of users list. Fetches data from server
