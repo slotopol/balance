@@ -2,6 +2,7 @@ package core
 
 import (
 	_ "embed"
+	"math/rand/v2"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/theme"
@@ -203,3 +204,28 @@ var (
 		StaticContent: underlay18Res,
 	}
 )
+
+var underlays = []*fyne.StaticResource{
+	underlay01ImgRes,
+	underlay02ImgRes,
+	underlay03ImgRes,
+	underlay04ImgRes,
+	underlay05ImgRes,
+	underlay06ImgRes,
+	underlay07ImgRes,
+	underlay08ImgRes,
+	underlay09ImgRes,
+	underlay10ImgRes,
+	underlay11ImgRes,
+	underlay12ImgRes,
+	underlay13ImgRes,
+	underlay14ImgRes,
+	underlay15ImgRes,
+	underlay16ImgRes,
+	underlay17ImgRes,
+	underlay18ImgRes,
+}
+
+func AnyUnderlay() *fyne.StaticResource {
+	return underlays[rand.N(len(underlays))]
+}

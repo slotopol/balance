@@ -12,7 +12,9 @@ import (
 	cfg "github.com/slotopol/balance/config"
 )
 
-func MakeSignIn() (err error) {
+var admin AuthResp
+
+func (f *Frame) MakeSignIn() (err error) {
 	if err = cfg.ReadCredentials(); err != nil {
 		log.Printf("failure on reading credentials, using default: %s\n", err.Error())
 		err = nil // skip this error
@@ -21,12 +23,12 @@ func MakeSignIn() (err error) {
 	if admin, err = ApiSignIn(cfg.Credentials.Email, cfg.Credentials.Secret); err != nil {
 		return
 	}
-	loginTxt.SetText(fmt.Sprintf(cfg.Credentials.Email))
+	f.loginTxt.SetText(fmt.Sprintf(cfg.Credentials.Email))
 	log.Printf("signed as '%s'", cfg.Credentials.Email)
 	return
 }
 
-func MakeClubList() (err error) {
+func (f *Frame) MakeClubList() (err error) {
 	var cl RetClubList
 	if cl, err = ApiClubList(); err != nil {
 		return
@@ -38,9 +40,9 @@ func MakeClubList() (err error) {
 		Clubs[item.Name] = item.CID
 		tabs[i] = container.NewTabItem(item.Name, widget.NewLabel(""))
 	}
-	clubtabs.SetItems(tabs)
+	f.clubTabs.SetItems(tabs)
 
-	clubtabs.OnSelected = func(tab *container.TabItem) {
+	f.clubTabs.OnSelected = func(tab *container.TabItem) {
 		var err error
 
 		var ok bool
@@ -51,15 +53,15 @@ func MakeClubList() (err error) {
 			return
 		}
 
-		RefreshContent()
+		f.RefreshContent()
 	}
-	clubtabs.OnSelected(clubtabs.Selected())
+	f.clubTabs.OnSelected(f.clubTabs.Selected())
 
 	log.Printf("clubs list ready, %d clubs", len(Clubs))
 	return
 }
 
-func MakeUserList() (err error) {
+func (f *Frame) MakeUserList() (err error) {
 	if err = cfg.ReadUserList(); err != nil {
 		log.Printf("failure on reading userlist, using default: %s\n", err.Error())
 		err = nil // skip this error
@@ -77,16 +79,16 @@ func MakeUserList() (err error) {
 		user.props = map[uint64]Props{} // make new empty map
 		Users[email] = user
 	}
-	go RefreshLoop()
+	go f.RefreshLoop()
 	log.Printf("users list ready, %d users", len(Users))
 	return
 }
 
-func RefreshLoop() {
+func (f *Frame) RefreshLoop() {
 	var c = time.Tick(Cfg.PropUpdateTick)
 	for range c {
 		if Foreground {
-			RefreshContent()
+			f.RefreshContent()
 		}
 	}
 }
@@ -94,8 +96,14 @@ func RefreshLoop() {
 func WaitToken() (err error) {
 	for {
 		var t time.Time
-		if t, err = time.Parse(admin.Expire, time.RFC3339); err != nil {
-			return
+		for {
+			if t, err = time.Parse(admin.Expire, time.RFC3339); err != nil {
+				return
+			}
+			if !t.IsZero() {
+				break
+			}
+			<-time.After(5 * time.Minute)
 		}
 		// get tokens before expire
 		<-time.After(time.Until(t.Add(-15 * time.Second)))
@@ -105,32 +113,28 @@ func WaitToken() (err error) {
 	}
 }
 
-func StartupChain() {
+func (f *Frame) StartupChain() {
 	var chain = [](func() error){
-		MakeSignIn,
-		MakeClubList,
-		MakeUserList,
+		f.MakeSignIn,
+		f.MakeClubList,
+		f.MakeUserList,
 	}
-	for _, f := range chain {
-		if err := f(); err != nil {
+	for _, step := range chain {
+		if err := step(); err != nil {
 			log.Printf("startup chain does not complete: %s\n", err.Error())
 			return
 		}
 	}
 }
 
-func CreateMainWindow(a fyne.App) fyne.Window {
-	var w = a.NewWindow("Balance")
+func (f *Frame) CreateWindow(a fyne.App) {
+	f.MainPage.Create()
 
-	w.SetContent(mainPage)
-	go StartupChain()
+	go f.StartupChain()
 	go WaitToken()
 
-	userlist.SetColumnWidth(0, 180) // email
-	userlist.SetColumnWidth(1, 100) // wallet
-	userlist.SetColumnWidth(2, 50)  // mtrp
-	userlist.SetColumnWidth(3, 150) // access
-	userlist.ExtendBaseWidget(userlist)
+	var w = a.NewWindow("Balance")
 	w.Resize(fyne.NewSize(540, 640))
-	return w
+	w.SetContent(f.mainPage)
+	f.Window = w
 }

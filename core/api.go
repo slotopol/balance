@@ -5,8 +5,6 @@ import (
 	"time"
 )
 
-var admin AuthResp
-
 type (
 	ArgSignIs struct {
 		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`

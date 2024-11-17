@@ -3,7 +3,6 @@ package core
 import (
 	"fmt"
 	"log"
-	"math/rand/v2"
 	"strconv"
 
 	"fyne.io/fyne/v2"
@@ -79,65 +78,73 @@ func (l FitLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 	return minSize
 }
 
-var underlays = []*fyne.StaticResource{
-	underlay01ImgRes,
-	underlay02ImgRes,
-	underlay03ImgRes,
-	underlay04ImgRes,
-	underlay05ImgRes,
-	underlay06ImgRes,
-	underlay07ImgRes,
-	underlay08ImgRes,
-	underlay09ImgRes,
-	underlay10ImgRes,
-	underlay11ImgRes,
-	underlay12ImgRes,
-	underlay13ImgRes,
-	underlay14ImgRes,
-	underlay15ImgRes,
-	underlay16ImgRes,
-	underlay17ImgRes,
-	underlay18ImgRes,
+type Frame struct {
+	fyne.Window
+	MainPage
 }
 
-var (
+type MainPage struct {
 	// Backgroud image
-	underlay = &canvas.Image{
-		Resource:     underlays[rand.N(len(underlays))],
+	underlay *canvas.Image
+
+	// Toolbar buttons
+	useraddBut *widget.ToolbarAction
+	userdelBut *widget.ToolbarAction
+	walletBut  *widget.ToolbarAction
+	mrtpBut    *widget.ToolbarAction
+	accessBut  *widget.ToolbarAction
+	bankBut    *widget.ToolbarAction
+	logoutBut  *widget.ToolbarAction
+	loginTxt   *ToolbarLabel
+
+	// Toolbar frame
+	toolbar *widget.Toolbar
+
+	// Table with users
+	clubTabs  *container.AppTabs
+	userTable *widget.Table
+	mainPage  *fyne.Container
+}
+
+var colhdr = []string{"email", "wallet", "MRTP", "access"}
+
+func (p *MainPage) Create() {
+	// Backgroud image
+	p.underlay = &canvas.Image{
+		Resource:     AnyUnderlay(),
 		FillMode:     canvas.ImageFillContain,
 		Translucency: 0.85,
 	}
 
 	// Toolbar buttons
-	useraddBut = widget.NewToolbarAction(useraddIconRes, func() { fmt.Println("useradd") })
-	userdelBut = widget.NewToolbarAction(userdelIconRes, func() { fmt.Println("userdel") })
-	walletBut  = widget.NewToolbarAction(walletIconRes, func() { fmt.Println("wallet") })
-	mrtpBut    = widget.NewToolbarAction(percentIconRes, func() { fmt.Println("mrtp") })
-	accessBut  = widget.NewToolbarAction(accessIconRes, func() { fmt.Println("access") })
-	bankBut    = widget.NewToolbarAction(bankIconRes, func() { fmt.Println("bank") })
-	logoutBut  = widget.NewToolbarAction(logoutIconRes, func() { fmt.Println("logout") })
-	loginTxt   = NewToolbarLabel("not logined yet")
+	p.useraddBut = widget.NewToolbarAction(useraddIconRes, func() { fmt.Println("useradd") })
+	p.userdelBut = widget.NewToolbarAction(userdelIconRes, func() { fmt.Println("userdel") })
+	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { fmt.Println("wallet") })
+	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { fmt.Println("mrtp") })
+	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { fmt.Println("access") })
+	p.bankBut = widget.NewToolbarAction(bankIconRes, func() { fmt.Println("bank") })
+	p.logoutBut = widget.NewToolbarAction(logoutIconRes, func() { fmt.Println("logout") })
+	p.loginTxt = NewToolbarLabel("not logined yet")
 
 	// Toolbar frame
-	toolbar = widget.NewToolbar(
-		useraddBut,
-		userdelBut,
+	p.toolbar = widget.NewToolbar(
+		p.useraddBut,
+		p.userdelBut,
 		widget.NewToolbarSeparator(),
-		walletBut,
-		mrtpBut,
-		accessBut,
+		p.walletBut,
+		p.mrtpBut,
+		p.accessBut,
 		widget.NewToolbarSeparator(),
-		bankBut,
+		p.bankBut,
 		widget.NewToolbarSpacer(),
 		widget.NewToolbarSeparator(),
-		loginTxt,
-		logoutBut,
+		p.loginTxt,
+		p.logoutBut,
 	)
 
 	// Table with users
-	clubtabs = &container.AppTabs{}
-	colhdr   = []string{"email", "wallet", "MRTP", "access"}
-	userlist = &widget.Table{
+	p.clubTabs = &container.AppTabs{}
+	p.userTable = &widget.Table{
 		Length: func() (int, int) { return len(cfg.UserList), 4 },
 		CreateCell: func() fyne.CanvasObject {
 			var label = widget.NewLabel("")
@@ -197,25 +204,30 @@ var (
 		ShowHeaderRow:    true,
 		ShowHeaderColumn: true,
 	}
+	p.userTable.SetColumnWidth(0, 180) // email
+	p.userTable.SetColumnWidth(1, 100) // wallet
+	p.userTable.SetColumnWidth(2, 50)  // mtrp
+	p.userTable.SetColumnWidth(3, 150) // access
+	p.userTable.ExtendBaseWidget(p.userTable)
 
 	// Main page
-	mainPage = container.NewStack(
-		container.New(FitLayout{}, underlay),
+	p.mainPage = container.NewStack(
+		container.New(FitLayout{}, p.underlay),
 		container.NewBorder(
-			container.NewVBox(toolbar, clubtabs),
+			container.NewVBox(p.toolbar, p.clubTabs),
 			nil, nil, nil,
-			userlist),
+			p.userTable),
 	)
-)
+}
 
 // Refreshes visible content of users list. Fetches data from server
 // if cached data has timeout is over.
-func RefreshContent() {
+func (p *MainPage) RefreshContent() {
 	var err error
 
-	userlist.Refresh()
+	p.userTable.Refresh()
 
-	var label = clubtabs.Selected().Content.(*widget.Label)
+	var label = p.clubTabs.Selected().Content.(*widget.Label)
 	var bank, fund, deposit = "N/A", "N/A", "N/A"
 	if cural&ALclub != 0 {
 		var info RetClubInfo
