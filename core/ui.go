@@ -80,16 +80,24 @@ func (l FitLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
 }
 
 var underlays = []*fyne.StaticResource{
-	underlay1ImgRes,
-	underlay2ImgRes,
-	underlay3ImgRes,
-	underlay4ImgRes,
-	underlay5ImgRes,
-	underlay6ImgRes,
-	underlay7ImgRes,
-	underlay8ImgRes,
-	underlay9ImgRes,
+	underlay01ImgRes,
+	underlay02ImgRes,
+	underlay03ImgRes,
+	underlay04ImgRes,
+	underlay05ImgRes,
+	underlay06ImgRes,
+	underlay07ImgRes,
+	underlay08ImgRes,
+	underlay09ImgRes,
 	underlay10ImgRes,
+	underlay11ImgRes,
+	underlay12ImgRes,
+	underlay13ImgRes,
+	underlay14ImgRes,
+	underlay15ImgRes,
+	underlay16ImgRes,
+	underlay17ImgRes,
+	underlay18ImgRes,
 }
 
 var (

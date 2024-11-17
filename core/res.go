@@ -37,35 +37,59 @@ var (
 
 // underlays
 var (
+	//go:embed underlay/bigcard.webp
+	underlay01Res []byte
+
 	//go:embed underlay/cards1.webp
-	underlay1Res []byte
+	underlay02Res []byte
 
 	//go:embed underlay/cards2.webp
-	underlay2Res []byte
+	underlay03Res []byte
 
 	//go:embed underlay/cards3.webp
-	underlay3Res []byte
+	underlay04Res []byte
 
 	//go:embed underlay/cards4.webp
-	underlay4Res []byte
+	underlay05Res []byte
 
 	//go:embed underlay/cards5.webp
-	underlay5Res []byte
+	underlay06Res []byte
 
 	//go:embed underlay/cards6.webp
-	underlay6Res []byte
+	underlay07Res []byte
+
+	//go:embed underlay/cards7.webp
+	underlay08Res []byte
+
+	//go:embed underlay/cards8.webp
+	underlay09Res []byte
+
+	//go:embed underlay/cards9.webp
+	underlay10Res []byte
+
+	//go:embed underlay/cards10.webp
+	underlay11Res []byte
+
+	//go:embed underlay/cards11.webp
+	underlay12Res []byte
+
+	//go:embed underlay/cards12.webp
+	underlay13Res []byte
 
 	//go:embed underlay/castle.webp
-	underlay7Res []byte
+	underlay14Res []byte
 
 	//go:embed underlay/clever.webp
-	underlay8Res []byte
+	underlay15Res []byte
 
 	//go:embed underlay/dices.webp
-	underlay9Res []byte
+	underlay16Res []byte
 
 	//go:embed underlay/dragon.webp
-	underlay10Res []byte
+	underlay17Res []byte
+
+	//go:embed underlay/scull.webp
+	underlay18Res []byte
 )
 
 // icon resources
@@ -106,44 +130,76 @@ var (
 
 // underlay resources
 var (
-	underlay1ImgRes = &fyne.StaticResource{
+	underlay01ImgRes = &fyne.StaticResource{
+		StaticName:    "bigcard",
+		StaticContent: underlay01Res,
+	}
+	underlay02ImgRes = &fyne.StaticResource{
 		StaticName:    "cards1",
-		StaticContent: underlay1Res,
+		StaticContent: underlay02Res,
 	}
-	underlay2ImgRes = &fyne.StaticResource{
+	underlay03ImgRes = &fyne.StaticResource{
 		StaticName:    "cards2",
-		StaticContent: underlay2Res,
+		StaticContent: underlay03Res,
 	}
-	underlay3ImgRes = &fyne.StaticResource{
+	underlay04ImgRes = &fyne.StaticResource{
 		StaticName:    "cards3",
-		StaticContent: underlay3Res,
+		StaticContent: underlay04Res,
 	}
-	underlay4ImgRes = &fyne.StaticResource{
+	underlay05ImgRes = &fyne.StaticResource{
 		StaticName:    "cards4",
-		StaticContent: underlay4Res,
+		StaticContent: underlay05Res,
 	}
-	underlay5ImgRes = &fyne.StaticResource{
+	underlay06ImgRes = &fyne.StaticResource{
 		StaticName:    "cards5",
-		StaticContent: underlay5Res,
+		StaticContent: underlay06Res,
 	}
-	underlay6ImgRes = &fyne.StaticResource{
+	underlay07ImgRes = &fyne.StaticResource{
 		StaticName:    "cards6",
-		StaticContent: underlay6Res,
+		StaticContent: underlay07Res,
 	}
-	underlay7ImgRes = &fyne.StaticResource{
-		StaticName:    "castle",
-		StaticContent: underlay7Res,
+	underlay08ImgRes = &fyne.StaticResource{
+		StaticName:    "cards7",
+		StaticContent: underlay08Res,
 	}
-	underlay8ImgRes = &fyne.StaticResource{
-		StaticName:    "clever",
-		StaticContent: underlay8Res,
-	}
-	underlay9ImgRes = &fyne.StaticResource{
-		StaticName:    "dices",
-		StaticContent: underlay9Res,
+	underlay09ImgRes = &fyne.StaticResource{
+		StaticName:    "cards8",
+		StaticContent: underlay09Res,
 	}
 	underlay10ImgRes = &fyne.StaticResource{
-		StaticName:    "dragon",
+		StaticName:    "cards9",
 		StaticContent: underlay10Res,
+	}
+	underlay11ImgRes = &fyne.StaticResource{
+		StaticName:    "cards10",
+		StaticContent: underlay11Res,
+	}
+	underlay12ImgRes = &fyne.StaticResource{
+		StaticName:    "cards11",
+		StaticContent: underlay12Res,
+	}
+	underlay13ImgRes = &fyne.StaticResource{
+		StaticName:    "cards12",
+		StaticContent: underlay13Res,
+	}
+	underlay14ImgRes = &fyne.StaticResource{
+		StaticName:    "castle",
+		StaticContent: underlay14Res,
+	}
+	underlay15ImgRes = &fyne.StaticResource{
+		StaticName:    "clever",
+		StaticContent: underlay15Res,
+	}
+	underlay16ImgRes = &fyne.StaticResource{
+		StaticName:    "dices",
+		StaticContent: underlay16Res,
+	}
+	underlay17ImgRes = &fyne.StaticResource{
+		StaticName:    "dragon",
+		StaticContent: underlay17Res,
+	}
+	underlay18ImgRes = &fyne.StaticResource{
+		StaticName:    "scull",
+		StaticContent: underlay18Res,
 	}
 )
