@@ -13,20 +13,6 @@ import (
 	cfg "github.com/slotopol/balance/config"
 )
 
-func (f *Frame) MakeSignIn() (err error) {
-	if err = cfg.ReadCredentials(); err != nil {
-		log.Printf("failure on reading credentials, using default: %s\n", err.Error())
-		err = nil // skip this error
-		return
-	}
-	if api.Admin, err = api.ReqSignIn(cfg.Credentials.Email, cfg.Credentials.Secret); err != nil {
-		return
-	}
-	f.loginTxt.SetText(fmt.Sprintf(cfg.Credentials.Email))
-	log.Printf("signed as '%s'", cfg.Credentials.Email)
-	return
-}
-
 func (f *Frame) MakeClubList() (err error) {
 	var cl api.RetClubList
 	if cl, err = api.ReqClubList(); err != nil {
@@ -113,7 +99,6 @@ func WaitToken() (err error) {
 
 func (f *Frame) StartupChain() {
 	var chain = [](func() error){
-		f.MakeSignIn,
 		f.MakeClubList,
 		f.MakeUserList,
 	}
@@ -126,19 +111,51 @@ func (f *Frame) StartupChain() {
 }
 
 func (f *Frame) CreateWindow(a fyne.App) {
-	f.MainPage.Create()
+	var errCred error
+	if errCred = cfg.ReadCredentials(); errCred != nil {
+		log.Printf("failure on reading credentials, using default: %s\n", errCred.Error())
+		return
+	}
 
-	go f.StartupChain()
+	f.MainPage.Create()
+	f.SigninPage.Create()
+
 	go WaitToken()
 
 	var w = a.NewWindow("Balance")
 	w.Resize(fyne.NewSize(540, 640))
-	w.SetContent(f.mainPage)
+	w.SetContent(f.signinPage)
 	f.Window = w
 
+	var submit = func() {
+		f.loginTxt.SetText(cfg.Credentials.Email)
+		w.SetContent(f.mainPage)
+		go f.StartupChain()
+		f.SigninPage.form.OnCancel = func() {
+			w.SetContent(f.mainPage)
+		}
+		f.SigninPage.form.Refresh()
+	}
+	f.SigninPage.form.OnSubmit = func() {
+		var err error
+		if api.Admin, err = api.ReqSignIn(f.email.Text, f.secret.Text); err != nil {
+			f.errmsg.SetText(fmt.Sprintf("can not sign in with given credentials, %s", err.Error()))
+			return
+		}
+		cfg.Credentials.Addr = f.host.Text
+		cfg.Credentials.Email = f.email.Text
+		cfg.Credentials.Secret = f.secret.Text
+		log.Printf("signed as '%s'", cfg.Credentials.Email)
+		submit()
+	}
+	f.SigninPage.form.Refresh()
 	f.userTable.SetColumnWidth(0, 180) // email
 	f.userTable.SetColumnWidth(1, 100) // wallet
 	f.userTable.SetColumnWidth(2, 50)  // mtrp
 	f.userTable.SetColumnWidth(3, 150) // access
 	f.userTable.ExtendBaseWidget(f.userTable)
+
+	if cfg.Credentials.Addr != "" && cfg.Credentials.Email != "" {
+		//submit()
+	}
 }

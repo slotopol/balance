@@ -42,7 +42,7 @@ var (
 func (p Props) Expired() bool {
 	const lag = 20 * time.Millisecond // for refresh synchronization
 	var d = time.Since(p.last)
-	return d < Cfg.PropUpdateTick-lag
+	return d > Cfg.PropUpdateTick-lag
 }
 
 func (u *User) GetProps(cid uint64) (p Props, ok bool) {

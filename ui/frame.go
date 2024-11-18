@@ -9,6 +9,8 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/data/validation"
+	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/slotopol/balance/api"
 	cfg "github.com/slotopol/balance/config"
@@ -26,63 +28,6 @@ var (
 var (
 	Cfg = cfg.Cfg // shortcut
 )
-
-// Label compatible with ToolbarItem interface to insert into Toolbar.
-type ToolbarLabel struct {
-	widget.Label
-}
-
-func NewToolbarLabel(text string) *ToolbarLabel {
-	var l = &ToolbarLabel{
-		Label: widget.Label{
-			Text:      text,
-			Alignment: fyne.TextAlignLeading,
-			TextStyle: fyne.TextStyle{},
-		},
-	}
-	l.ExtendBaseWidget(l)
-	return l
-}
-
-func (tl *ToolbarLabel) ToolbarObject() fyne.CanvasObject {
-	tl.Label.Importance = widget.LowImportance
-	return tl
-}
-
-// Layout that fits the images to whole space and cuts edges if it needs.
-type FitLayout struct {
-}
-
-func (l FitLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	var ratiofit = size.Width / size.Height
-	for _, child := range objects {
-		var newsize = size
-		var pos = fyne.NewPos(0, 0)
-		if img, ok := child.(*canvas.Image); ok {
-			var ratioimg = img.Aspect()
-			if ratiofit > ratioimg {
-				newsize.Height = size.Width / ratioimg
-				pos.Y = (size.Height - newsize.Height) / 2
-			} else {
-				newsize.Width = size.Height * ratioimg
-				pos.Y = (size.Width - newsize.Width) / 2
-			}
-		}
-		child.Resize(newsize)
-		child.Move(pos)
-	}
-}
-
-func (l FitLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
-	var minSize = fyne.NewSize(0, 0)
-	for _, child := range objects {
-		if !child.Visible() {
-			continue
-		}
-		minSize = minSize.Max(child.MinSize())
-	}
-	return minSize
-}
 
 func GetProp(cid uint64, user *api.User) (p api.Props, err error) {
 	if p, _ = user.GetProps(curcid); !p.Expired() {
@@ -117,7 +62,79 @@ func FormatAL(al api.AL) string {
 
 type Frame struct {
 	fyne.Window
+	SigninPage
 	MainPage
+}
+
+type SigninPage struct {
+	// Backgroud image
+	underlay *canvas.Image
+
+	// Form widgets
+	host   *widget.Entry
+	email  *widget.Entry
+	secret *widget.Entry
+	form   *widget.Form
+	errmsg *widget.Label
+
+	// Page frame
+	signinPage *fyne.Container
+}
+
+const descrmd = `# SLOTOPOL credentials
+
+To be able to view and change balance of users, the account must have the administrator access permission for working with *users*. To be able to view and change contents of the club bank, deposit and jackpot fund, the access permission for working with the *club* is required.
+`
+
+const (
+	hostRx  = `^((http|https|ftp):\/\/)?(\w[\w_\-]*(\.\w[\w_\-]*)*)(:\d+)?$`
+	emailRx = `^\w[\w_\-\.]*@\w+\.\w{1,4}$`
+)
+
+func (p *SigninPage) Create() {
+	// Backgroud image
+	p.underlay = &canvas.Image{
+		Resource:     AnyUnderlay(),
+		FillMode:     canvas.ImageFillContain,
+		Translucency: 0.85,
+	}
+
+	// Description
+	var descr = widget.NewRichTextFromMarkdown(descrmd)
+	descr.Wrapping = fyne.TextWrapWord
+
+	// Form widgets
+	p.host = widget.NewEntry()
+	p.host.SetPlaceHolder("http://example.com:8080")
+	p.host.Validator = validation.NewRegexp(hostRx, "not a valid host")
+	p.host.Text = cfg.Credentials.Addr
+	p.email = widget.NewEntry()
+	p.email.SetPlaceHolder("test@example.com")
+	p.email.Validator = validation.NewRegexp(emailRx, "not a valid email")
+	p.email.Text = cfg.Credentials.Email
+	p.secret = widget.NewPasswordEntry()
+	p.secret.SetPlaceHolder("password")
+	p.secret.Text = cfg.Credentials.Secret
+	p.errmsg = widget.NewLabel("")
+	p.errmsg.Wrapping = fyne.TextWrapWord
+	p.form = &widget.Form{
+		Items: []*widget.FormItem{
+			{Text: "Host", Widget: p.host, HintText: "Host address of server"},
+			{Text: "Email", Widget: p.email, HintText: "A valid registered email address"},
+			{Text: "Secret", Widget: p.secret, HintText: "Password for authorization"},
+		},
+	}
+
+	p.signinPage = container.NewStack(
+		NewImageFit(p.underlay),
+		container.NewVBox(
+			layout.NewSpacer(),
+			descr,
+			p.form,
+			layout.NewSpacer(),
+			p.errmsg,
+		),
+	)
 }
 
 type MainPage struct {
@@ -244,7 +261,7 @@ func (p *MainPage) Create() {
 
 	// Main page
 	p.mainPage = container.NewStack(
-		container.New(FitLayout{}, p.underlay),
+		NewImageFit(p.underlay),
 		container.NewBorder(
 			container.NewVBox(p.toolbar, p.clubTabs),
 			nil, nil, nil,
