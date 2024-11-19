@@ -11,13 +11,13 @@ import (
 	cfg "github.com/slotopol/balance/config"
 )
 
-type ajaxerr struct {
+type AjaxErr struct {
 	What string `json:"what" yaml:"what" xml:"what"`
 	Code int    `json:"code,omitempty" yaml:"code,omitempty" xml:"code,omitempty"`
 	UID  uint64 `json:"uid,omitempty" yaml:"uid,omitempty" xml:"uid,omitempty,attr"`
 }
 
-func (err ajaxerr) Error() string {
+func (err AjaxErr) Error() string {
 	return fmt.Sprintf("what: %s, code: %d", err.What, err.Code)
 }
 
@@ -54,7 +54,7 @@ func HttpPost[Ta, Tr any](path string, token string, arg *Ta) (ret Tr, status in
 		return
 	}
 	if resp.StatusCode >= http.StatusBadRequest {
-		var aerr ajaxerr
+		var aerr AjaxErr
 		if err = json.Unmarshal(b, &aerr); err != nil {
 			return
 		}

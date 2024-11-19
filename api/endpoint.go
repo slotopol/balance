@@ -44,7 +44,7 @@ func ReqSignIs(email string) (user User, err error) {
 		Email: email,
 	}
 	var ret RetSignIs
-	ret, _, err = HttpPost[ArgSignIs, RetSignIs]("/user/is", Admin.Access, &arg)
+	ret, _, err = HttpPost[ArgSignIs, RetSignIs]("/signin", Admin.Access, &arg)
 	user.UID = ret.UID
 	user.Email = ret.Email
 	user.Name = ret.Name
@@ -61,6 +61,40 @@ func ReqSignIn(email, secret string) (ret AuthResp, err error) {
 
 func ReqRefresh() (ret AuthResp, err error) {
 	ret, _, err = HttpPost[any, AuthResp]("/refresh", Admin.Access, nil)
+	return
+}
+
+type (
+	useritem struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"user"`
+		UID     uint64   `json:"uid,omitempty" yaml:"uid,omitempty" xml:"uid,attr,omitempty"`
+		Email   string   `json:"email,omitempty" yaml:"email,omitempty" xml:"email,attr,omitempty"`
+		Name    string   `json:"name,omitempty" yaml:"name,omitempty" xml:"name,attr,omitempty"`
+	}
+	ArgUserIs struct {
+		XMLName xml.Name   `json:"-" yaml:"-" xml:"arg"`
+		List    []useritem `json:"list" yaml:"list" xml:"list>user"`
+	}
+	RetUserIs struct {
+		XMLName xml.Name   `json:"-" yaml:"-" xml:"ret"`
+		List    []useritem `json:"list" yaml:"list" xml:"list>user"`
+	}
+)
+
+func ReqUserIs(emails []string) (users []User, err error) {
+	var arg ArgUserIs
+	var ret RetUserIs
+	arg.List = make([]useritem, len(emails))
+	for i, email := range emails {
+		arg.List[i].Email = email
+	}
+	ret, _, err = HttpPost[ArgUserIs, RetUserIs]("/user/is", Admin.Access, &arg)
+	users = make([]User, len(ret.List))
+	for i, item := range ret.List {
+		users[i].UID = item.UID
+		users[i].Email = item.Email
+		users[i].Name = item.Name
+	}
 	return
 }
 

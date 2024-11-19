@@ -1,24 +1,24 @@
 package cfg
 
 import (
+	"errors"
 	"log"
 	"os"
 	"path/filepath"
 
-	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
 
+const AppID = "slotopol.balance"
+
 const (
-	cfgcredentials = "balance-credentials.yaml"
-	cfguserlist    = "balance-userlist.yaml"
+	cfgcredentials = "credentials.yaml"
+	cfguserlist    = "userlist.yaml"
 )
 
 var (
 	// Executable path.
 	ExePath string
-	// Configuration file with path.
-	CfgFile string
 	// Configuration path.
 	CfgPath string
 )
@@ -35,59 +35,78 @@ func init() {
 		}
 	}()
 
-	// Config path
-	const sub = "config"
-	// Search config in home directory with name "balance" (without extension).
-	viper.SetConfigName("balance-app")
-	viper.SetConfigType("yaml")
-	if env, ok := os.LookupEnv("CFGFILE"); ok {
-		viper.AddConfigPath(env)
+	// Configuration path
+	var oscfgpath string
+	if oscfgpath, err = os.UserConfigDir(); err != nil {
+		log.Printf("can not obtain user config directory, any settings can not be saved: %s", err.Error())
+		return
 	}
-	viper.AddConfigPath(filepath.Join(ExePath, sub))
-	viper.AddConfigPath(ExePath)
-	viper.AddConfigPath(sub)
-	viper.AddConfigPath(".")
-	if home, err := os.UserHomeDir(); err == nil {
-		viper.AddConfigPath(filepath.Join(home, sub))
-		viper.AddConfigPath(home)
-	}
-	if env, ok := os.LookupEnv("GOBIN"); ok {
-		viper.AddConfigPath(filepath.Join(env, sub))
-		viper.AddConfigPath(env)
-	} else if env, ok := os.LookupEnv("GOPATH"); ok {
-		viper.AddConfigPath(filepath.Join(env, "bin", sub))
-		viper.AddConfigPath(filepath.Join(env, "bin"))
-	}
+	CfgPath = filepath.Join(oscfgpath, "fyne", AppID)
+	log.Printf("config path: %s\n", CfgPath)
 
-	viper.AutomaticEnv()
-
-	if err = viper.ReadInConfig(); err != nil {
-		log.Println("config file not found!")
-	} else {
-		viper.Unmarshal(&Cfg)
-		CfgFile = viper.ConfigFileUsed()
-		CfgPath = filepath.Dir(CfgFile)
-		log.Printf("config path: %s\n", CfgPath)
+	if err = ReadCredentials(); err != nil {
+		log.Printf("failure on reading credentials, using default: %s\n", err.Error())
+	}
+	if err = ReadUserList(); err != nil {
+		log.Printf("failure on reading userlist, using default: %s\n", err.Error())
 	}
 }
 
+var (
+	ErrNoCfgPath = errors.New("configuration path does not obtained")
+)
+
 func ReadCredentials() (err error) {
+	if CfgPath == "" {
+		return ErrNoCfgPath
+	}
 	var b []byte
 	if b, err = os.ReadFile(filepath.Join(CfgPath, cfgcredentials)); err != nil {
 		return
 	}
-	if yaml.Unmarshal(b, Credentials); err != nil {
+	if err = yaml.Unmarshal(b, Credentials); err != nil {
+		return
+	}
+	return
+}
+
+func SaveCredentials() (err error) {
+	if CfgPath == "" {
+		return ErrNoCfgPath
+	}
+	var b []byte
+	if b, err = yaml.Marshal(Credentials); err != nil {
+		return
+	}
+	if err = os.WriteFile(filepath.Join(CfgPath, cfgcredentials), b, 0666); err != nil {
 		return
 	}
 	return
 }
 
 func ReadUserList() (err error) {
+	if CfgPath == "" {
+		return ErrNoCfgPath
+	}
 	var b []byte
 	if b, err = os.ReadFile(filepath.Join(CfgPath, cfguserlist)); err != nil {
 		return
 	}
-	if yaml.Unmarshal(b, &UserList); err != nil {
+	if err = yaml.Unmarshal(b, &UserList); err != nil {
+		return
+	}
+	return
+}
+
+func SaveUserList() (err error) {
+	if CfgPath == "" {
+		return ErrNoCfgPath
+	}
+	var b []byte
+	if b, err = yaml.Marshal(&UserList); err != nil {
+		return
+	}
+	if err = os.WriteFile(filepath.Join(CfgPath, cfguserlist), b, 0666); err != nil {
 		return
 	}
 	return

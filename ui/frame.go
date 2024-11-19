@@ -123,6 +123,7 @@ func (p *SigninPage) Create() {
 			{Text: "Email", Widget: p.email, HintText: "A valid registered email address"},
 			{Text: "Secret", Widget: p.secret, HintText: "Password for authorization"},
 		},
+		SubmitText: "Sign-in",
 	}
 
 	p.signinPage = container.NewStack(

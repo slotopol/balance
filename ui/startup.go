@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -47,24 +48,28 @@ func (f *Frame) MakeClubList() (err error) {
 }
 
 func (f *Frame) MakeUserList() (err error) {
-	if err = cfg.ReadUserList(); err != nil {
-		log.Printf("failure on reading userlist, using default: %s\n", err.Error())
-		err = nil // skip this error
+	var users []api.User
+	if users, err = api.ReqUserIs(cfg.UserList); err != nil {
+		return
 	}
-	for i, email := range cfg.UserList {
-		var user api.User
-		if user, err = api.ReqSignIs(email); err != nil {
-			return
-		}
+	var save bool
+	var i int
+	for _, user := range users {
+		var email = cfg.UserList[i]
 		if user.UID == 0 {
 			cfg.UserList = append(cfg.UserList[:i], cfg.UserList[i+1:]...)
 			log.Printf("user with email '%s' presents in yaml list but absent in server database, skipped", email)
+			save = true
 			continue
 		}
 		api.Users[email] = &user
+		i++
 	}
 	go f.RefreshLoop()
 	log.Printf("users list ready, %d users", len(api.Users))
+	if save {
+		cfg.SaveUserList()
+	}
 	return
 }
 
@@ -110,13 +115,46 @@ func (f *Frame) StartupChain() {
 	}
 }
 
-func (f *Frame) CreateWindow(a fyne.App) {
-	var errCred error
-	if errCred = cfg.ReadCredentials(); errCred != nil {
-		log.Printf("failure on reading credentials, using default: %s\n", errCred.Error())
-		return
+func (f *Frame) submitSignin() {
+	if api.Admin.Email != f.email.Text {
+		var err error
+		if api.Admin, err = api.ReqSignIn(f.email.Text, f.secret.Text); err != nil {
+			var msg string
+			var aerr api.AjaxErr
+			if errors.As(err, &aerr) {
+				msg = aerr.What
+			} else {
+				msg = err.Error()
+			}
+			f.errmsg.SetText(fmt.Sprintf("can not sign in with given credentials, %s", msg))
+			return
+		}
+		log.Printf("signed as '%s'", cfg.Credentials.Email)
+
+		var save = cfg.Credentials.Addr != f.host.Text ||
+			cfg.Credentials.Email != f.email.Text ||
+			cfg.Credentials.Secret != f.secret.Text
+		if save {
+			cfg.Credentials.Addr = f.host.Text
+			cfg.Credentials.Email = f.email.Text
+			cfg.Credentials.Secret = f.secret.Text
+			if err = cfg.SaveCredentials(); err != nil {
+				log.Printf("can not save credentials: %s", err.Error())
+			}
+		}
 	}
 
+	f.SigninPage.form.OnCancel = func() {
+		f.Window.SetContent(f.mainPage)
+	}
+	f.SigninPage.form.Refresh()
+	f.Window.SetContent(f.mainPage)
+	f.loginTxt.SetText(cfg.Credentials.Email)
+
+	go f.StartupChain()
+}
+
+func (f *Frame) CreateWindow(a fyne.App) {
 	f.MainPage.Create()
 	f.SigninPage.Create()
 
@@ -127,27 +165,7 @@ func (f *Frame) CreateWindow(a fyne.App) {
 	w.SetContent(f.signinPage)
 	f.Window = w
 
-	var submit = func() {
-		f.loginTxt.SetText(cfg.Credentials.Email)
-		w.SetContent(f.mainPage)
-		go f.StartupChain()
-		f.SigninPage.form.OnCancel = func() {
-			w.SetContent(f.mainPage)
-		}
-		f.SigninPage.form.Refresh()
-	}
-	f.SigninPage.form.OnSubmit = func() {
-		var err error
-		if api.Admin, err = api.ReqSignIn(f.email.Text, f.secret.Text); err != nil {
-			f.errmsg.SetText(fmt.Sprintf("can not sign in with given credentials, %s", err.Error()))
-			return
-		}
-		cfg.Credentials.Addr = f.host.Text
-		cfg.Credentials.Email = f.email.Text
-		cfg.Credentials.Secret = f.secret.Text
-		log.Printf("signed as '%s'", cfg.Credentials.Email)
-		submit()
-	}
+	f.SigninPage.form.OnSubmit = f.submitSignin
 	f.SigninPage.form.Refresh()
 	f.userTable.SetColumnWidth(0, 180) // email
 	f.userTable.SetColumnWidth(1, 100) // wallet
@@ -156,6 +174,6 @@ func (f *Frame) CreateWindow(a fyne.App) {
 	f.userTable.ExtendBaseWidget(f.userTable)
 
 	if cfg.Credentials.Addr != "" && cfg.Credentials.Email != "" {
-		//submit()
+		f.submitSignin()
 	}
 }

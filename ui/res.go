@@ -11,9 +11,6 @@ import (
 
 // icons
 var (
-	//go:embed icon/login.svg
-	loginRes []byte
-
 	//go:embed icon/logout.svg
 	logoutRes []byte
 
@@ -95,10 +92,6 @@ var (
 
 // icon resources
 var (
-	loginIconRes = theme.NewThemedResource(&fyne.StaticResource{
-		StaticName:    "login",
-		StaticContent: loginRes,
-	})
 	logoutIconRes = theme.NewThemedResource(&fyne.StaticResource{
 		StaticName:    "logout",
 		StaticContent: logoutRes,
