@@ -1,8 +1,10 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -10,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/validation"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
 	"github.com/slotopol/balance/api"
@@ -27,6 +30,11 @@ var (
 
 var (
 	Cfg = cfg.Cfg // shortcut
+)
+
+var (
+	ErrBadEmail = errors.New("not a valid email")
+	ErrNoUser   = errors.New("given email does not registered")
 )
 
 func GetProp(cid uint64, user *api.User) (p api.Props, err error) {
@@ -60,6 +68,23 @@ func FormatAL(al api.AL) string {
 	return strings.Join(items, ", ")
 }
 
+func EmailValidator() fyne.StringValidator {
+	return func(str string) error {
+		var err error
+		var status int
+		if _, status, err = api.ReqSignIs(str); err != nil {
+			switch status {
+			case http.StatusBadRequest:
+				return ErrBadEmail
+			case http.StatusNotFound:
+				return ErrNoUser
+			}
+			return err
+		}
+		return nil
+	}
+}
+
 type Frame struct {
 	fyne.Window
 	SigninPage
@@ -91,7 +116,7 @@ const (
 	emailRx = `^\w[\w_\-\.]*@\w+\.\w{1,4}$`
 )
 
-func (p *SigninPage) Create() {
+func (p *SigninPage) Create(w fyne.Window) {
 	// Backgroud image
 	p.underlay = &canvas.Image{
 		Resource:     AnyUnderlay(),
@@ -139,6 +164,8 @@ func (p *SigninPage) Create() {
 }
 
 type MainPage struct {
+	selected int // current selected row index
+
 	// Backgroud image
 	underlay *canvas.Image
 
@@ -163,7 +190,7 @@ type MainPage struct {
 
 var colhdr = []string{"email", "wallet", "MRTP", "access"}
 
-func (p *MainPage) Create() {
+func (p *MainPage) Create(w fyne.Window) {
 	// Backgroud image
 	p.underlay = &canvas.Image{
 		Resource:     AnyUnderlay(),
@@ -172,8 +199,8 @@ func (p *MainPage) Create() {
 	}
 
 	// Toolbar buttons
-	p.useraddBut = widget.NewToolbarAction(useraddIconRes, func() { fmt.Println("useradd") })
-	p.userdelBut = widget.NewToolbarAction(userdelIconRes, func() { fmt.Println("userdel") })
+	p.useraddBut = widget.NewToolbarAction(useraddIconRes, func() { p.OnUserAdd(w) })
+	p.userdelBut = widget.NewToolbarAction(userdelIconRes, func() { p.OnUserRemove(w) })
 	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { fmt.Println("wallet") })
 	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { fmt.Println("mrtp") })
 	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { fmt.Println("access") })
@@ -256,9 +283,14 @@ func (p *MainPage) Create() {
 				label.SetText("")
 			}
 		},
+		OnSelected:       p.OnCellSelected,
+		OnUnselected:     func(id widget.TableCellID) { p.OnCellUnselect() },
 		ShowHeaderRow:    true,
 		ShowHeaderColumn: true,
 	}
+
+	p.selected = -1
+	p.userdelBut.Disable()
 
 	// Main page
 	p.mainPage = container.NewStack(
@@ -268,6 +300,69 @@ func (p *MainPage) Create() {
 			nil, nil, nil,
 			p.userTable),
 	)
+}
+
+func (p *MainPage) OnCellSelected(id widget.TableCellID) {
+	log.Println(id)
+	if id.Row < 0 || id.Col < 0 {
+		p.OnCellUnselect()
+		return
+	}
+	if _, ok := api.Users[cfg.UserList[id.Row]]; !ok {
+		return
+	}
+	p.selected = id.Row
+	p.userdelBut.Enable()
+}
+
+func (p *MainPage) OnCellUnselect() {
+	p.selected = -1
+	p.userdelBut.Disable()
+}
+
+func (p *MainPage) OnUserAdd(w fyne.Window) {
+	var emailEdt = widget.NewEntry()
+	emailEdt.Validator = EmailValidator()
+	emailEdt.PlaceHolder = "test@example.com"
+	var items = []*widget.FormItem{
+		{Text: "Email", Widget: emailEdt, HintText: "Email of registered user"},
+	}
+	var dlg = dialog.NewForm("Registered email", "Add", "Cancel", items, func(b bool) {
+		var err error
+		var user api.User
+		if !b {
+			return
+		}
+		if user, _, err = api.ReqSignIs(emailEdt.Text); err != nil {
+			log.Printf("can not detect user '%s'", emailEdt.Text)
+			return
+		}
+		cfg.UserList = append(cfg.UserList, emailEdt.Text)
+		api.Users[emailEdt.Text] = &user
+		p.userTable.Refresh()
+		cfg.SaveUserList()
+	}, w)
+	dlg.Resize(fyne.Size{Width: 400})
+	dlg.Show()
+}
+
+func (p *MainPage) OnUserRemove(w fyne.Window) {
+	var email = cfg.UserList[p.selected]
+	var dlg = dialog.NewConfirm(
+		"Confirm to remove",
+		fmt.Sprintf("Confirm to remove user with email '%s' from the list. It will be removed from the list only and remains in the database.", email),
+		func(confirm bool) {
+			if !confirm {
+				return
+			}
+			cfg.UserList = append(cfg.UserList[:p.selected], cfg.UserList[p.selected+1:]...)
+			delete(api.Users, email)
+			p.userTable.Refresh()
+			cfg.SaveUserList()
+		}, w)
+	dlg.SetDismissText("Cancel")
+	dlg.SetConfirmText("Remove")
+	dlg.Show()
 }
 
 // Refreshes visible content of users list. Fetches data from server

@@ -138,9 +138,7 @@ func (f *Frame) submitSignin() {
 			cfg.Credentials.Addr = f.host.Text
 			cfg.Credentials.Email = f.email.Text
 			cfg.Credentials.Secret = f.secret.Text
-			if err = cfg.SaveCredentials(); err != nil {
-				log.Printf("can not save credentials: %s", err.Error())
-			}
+			cfg.SaveCredentials()
 		}
 	}
 
@@ -155,15 +153,15 @@ func (f *Frame) submitSignin() {
 }
 
 func (f *Frame) CreateWindow(a fyne.App) {
-	f.MainPage.Create()
-	f.SigninPage.Create()
-
 	go WaitToken()
 
 	var w = a.NewWindow("Balance")
+	f.Window = w
+	f.MainPage.Create(w)
+	f.SigninPage.Create(w)
+
 	w.Resize(fyne.NewSize(540, 640))
 	w.SetContent(f.signinPage)
-	f.Window = w
 
 	f.SigninPage.form.OnSubmit = f.submitSignin
 	f.SigninPage.form.Refresh()

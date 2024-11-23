@@ -29,12 +29,12 @@ func (tl *ToolbarLabel) ToolbarObject() fyne.CanvasObject {
 	return tl
 }
 
-type CenterVBoxLayout struct {
-}
-
 // Layout that fits the images to whole space and cuts edges if it needs.
 type ImageFitLayout struct {
 }
+
+// Declare conformity with Layout interface
+var _ fyne.Layout = (*ImageFitLayout)(nil)
 
 func NewImageFit(objects ...fyne.CanvasObject) *fyne.Container {
 	return container.New(ImageFitLayout{}, objects...)

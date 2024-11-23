@@ -41,7 +41,12 @@ func init() {
 		log.Printf("can not obtain user config directory, any settings can not be saved: %s", err.Error())
 		return
 	}
-	CfgPath = filepath.Join(oscfgpath, "fyne", AppID)
+	var appdata = filepath.Join(oscfgpath, "fyne", AppID)
+	if err = os.MkdirAll(appdata, 0750); err != nil {
+		log.Printf("cannot create application config directory: %s\n", err.Error())
+		return
+	}
+	CfgPath = appdata
 	log.Printf("config path: %s\n", CfgPath)
 
 	if err = ReadCredentials(); err != nil {
@@ -71,6 +76,11 @@ func ReadCredentials() (err error) {
 }
 
 func SaveCredentials() (err error) {
+	defer func() {
+		if err != nil {
+			log.Printf("can not save credentials: %s", err.Error())
+		}
+	}()
 	if CfgPath == "" {
 		return ErrNoCfgPath
 	}
@@ -99,6 +109,11 @@ func ReadUserList() (err error) {
 }
 
 func SaveUserList() (err error) {
+	defer func() {
+		if err != nil {
+			log.Printf("can not save user list: %s", err.Error())
+		}
+	}()
 	if CfgPath == "" {
 		return ErrNoCfgPath
 	}

@@ -39,12 +39,12 @@ type (
 	}
 )
 
-func ReqSignIs(email string) (user User, err error) {
+func ReqSignIs(email string) (user User, status int, err error) {
 	var arg = ArgSignIs{
 		Email: email,
 	}
 	var ret RetSignIs
-	ret, _, err = HttpPost[ArgSignIs, RetSignIs]("/signin", Admin.Access, &arg)
+	ret, status, err = HttpPost[ArgSignIs, RetSignIs]("/signis", Admin.Access, &arg)
 	user.UID = ret.UID
 	user.Email = ret.Email
 	user.Name = ret.Name
