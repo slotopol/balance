@@ -25,7 +25,7 @@ func NewToolbarLabel(text string) *ToolbarLabel {
 }
 
 func (tl *ToolbarLabel) ToolbarObject() fyne.CanvasObject {
-	tl.Label.Importance = widget.LowImportance
+	tl.Label.Importance = widget.MediumImportance
 	return tl
 }
 

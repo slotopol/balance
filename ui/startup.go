@@ -32,10 +32,10 @@ func (f *Frame) MakeClubList() (err error) {
 		var err error
 
 		var ok bool
-		if curcid, ok = api.Clubs[tab.Text]; !ok {
+		if f.selcid, ok = api.Clubs[tab.Text]; !ok {
 			return
 		}
-		if cural, err = api.ReqAccessGet(curcid, api.Admin.UID, true); err != nil {
+		if f.admAL, err = api.ReqAccessGet(f.selcid, api.Admin.UID, true); err != nil {
 			return
 		}
 

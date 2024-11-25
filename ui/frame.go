@@ -24,27 +24,30 @@ import (
 var Foreground bool
 
 var (
-	curcid uint64 // current selected at tab club ID
-	cural  api.AL // access level of loggined account for current selected club
+	Cfg = cfg.Cfg // shortcut
 )
 
-var (
-	Cfg = cfg.Cfg // shortcut
+const (
+	hostRx   = `^((http|https|ftp):\/\/)?(\w[\w_\-]*(\.\w[\w_\-]*)*)(:\d+)?$`
+	emailRx  = `^\w[\w_\-\.]*@\w+\.\w{1,4}$`
+	walletRx = `^(\+|\-)?\d+(\.\d*)?$`
 )
 
 var (
 	ErrBadEmail = errors.New("not a valid email")
 	ErrNoUser   = errors.New("given email does not registered")
+	ErrRtpMin   = errors.New("RTP is too small")
+	ErrRtpMax   = errors.New("RTP is too big")
 )
 
 func GetProp(cid uint64, user *api.User) (p api.Props, err error) {
-	if p, _ = user.GetProps(curcid); !p.Expired() {
+	if p, _ = user.GetProps(cid); !p.Expired() {
 		return // return cached
 	}
-	if p, err = api.ReqPropGet(curcid, user.UID); err != nil {
+	if p, err = api.ReqPropGet(cid, user.UID); err != nil {
 		return
 	}
-	user.SetProps(curcid, p)
+	user.SetProps(cid, p)
 	return
 }
 
@@ -68,21 +71,36 @@ func FormatAL(al api.AL) string {
 	return strings.Join(items, ", ")
 }
 
-func EmailValidator() fyne.StringValidator {
-	return func(str string) error {
-		var err error
-		var status int
-		if _, status, err = api.ReqSignIs(str); err != nil {
-			switch status {
-			case http.StatusBadRequest:
-				return ErrBadEmail
-			case http.StatusNotFound:
-				return ErrNoUser
-			}
-			return err
+func EmailValidator(str string) error {
+	var err error
+	var status int
+	if _, status, err = api.ReqSignIs(str); err != nil {
+		switch status {
+		case http.StatusBadRequest:
+			return ErrBadEmail
+		case http.StatusNotFound:
+			return ErrNoUser
 		}
-		return nil
+		return err
 	}
+	return nil
+}
+
+func MrtpValidator(s string) (err error) {
+	var v float64
+	if v, err = strconv.ParseFloat(s, 64); err != nil {
+		return
+	}
+	if v == 0 {
+		return nil // special case
+	}
+	if v < 85.0 {
+		return ErrRtpMin
+	}
+	if v > 115.0 {
+		return ErrRtpMax
+	}
+	return
 }
 
 type Frame struct {
@@ -111,11 +129,6 @@ const descrmd = `# SLOTOPOL credentials
 To be able to view and change balance of users, the account must have the administrator access permission for working with *users*. To be able to view and change contents of the club bank, deposit and jackpot fund, the access permission for working with the *club* is required.
 `
 
-const (
-	hostRx  = `^((http|https|ftp):\/\/)?(\w[\w_\-]*(\.\w[\w_\-]*)*)(:\d+)?$`
-	emailRx = `^\w[\w_\-\.]*@\w+\.\w{1,4}$`
-)
-
 func (p *SigninPage) Create(w fyne.Window) {
 	// Backgroud image
 	p.underlay = &canvas.Image{
@@ -135,7 +148,7 @@ func (p *SigninPage) Create(w fyne.Window) {
 	p.host.Text = cfg.Credentials.Addr
 	p.email = widget.NewEntry()
 	p.email.SetPlaceHolder("test@example.com")
-	p.email.Validator = validation.NewRegexp(emailRx, "not a valid email")
+	p.email.Validator = EmailValidator
 	p.email.Text = cfg.Credentials.Email
 	p.secret = widget.NewPasswordEntry()
 	p.secret.SetPlaceHolder("password")
@@ -164,7 +177,10 @@ func (p *SigninPage) Create(w fyne.Window) {
 }
 
 type MainPage struct {
-	selected int // current selected row index
+	selcid  uint64    // current selected at tab club ID
+	admAL   api.AL    // access level of loggined account for current selected club
+	selIdx  int       // current selected row index
+	selUser *api.User // user at current selected row index
 
 	// Backgroud image
 	underlay *canvas.Image
@@ -201,8 +217,8 @@ func (p *MainPage) Create(w fyne.Window) {
 	// Toolbar buttons
 	p.useraddBut = widget.NewToolbarAction(useraddIconRes, func() { p.OnUserAdd(w) })
 	p.userdelBut = widget.NewToolbarAction(userdelIconRes, func() { p.OnUserRemove(w) })
-	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { fmt.Println("wallet") })
-	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { fmt.Println("mrtp") })
+	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { p.OnUserWallet(w) })
+	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { p.OnUserMrtp(w) })
 	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { fmt.Println("access") })
 	p.bankBut = widget.NewToolbarAction(bankIconRes, func() { fmt.Println("bank") })
 	p.logoutBut = widget.NewToolbarAction(logoutIconRes, func() { fmt.Println("logout") })
@@ -246,12 +262,12 @@ func (p *MainPage) Create(w fyne.Window) {
 				label.SetText(cfg.UserList[id.Row])
 				return
 			}
-			if cural&api.ALuser == 0 {
+			if p.admAL&api.ALuser == 0 {
 				label.SetText("N/A")
 				return
 			}
 			var prop api.Props
-			if prop, err = GetProp(curcid, user); err != nil {
+			if prop, err = GetProp(p.selcid, user); err != nil {
 				label.SetText("error")
 				return
 			}
@@ -289,8 +305,7 @@ func (p *MainPage) Create(w fyne.Window) {
 		ShowHeaderColumn: true,
 	}
 
-	p.selected = -1
-	p.userdelBut.Disable()
+	p.OnCellUnselect()
 
 	// Main page
 	p.mainPage = container.NewStack(
@@ -303,36 +318,48 @@ func (p *MainPage) Create(w fyne.Window) {
 }
 
 func (p *MainPage) OnCellSelected(id widget.TableCellID) {
-	log.Println(id)
 	if id.Row < 0 || id.Col < 0 {
 		p.OnCellUnselect()
 		return
 	}
-	if _, ok := api.Users[cfg.UserList[id.Row]]; !ok {
+	var user, ok = api.Users[cfg.UserList[id.Row]]
+	if !ok {
 		return
 	}
-	p.selected = id.Row
+	p.selIdx = id.Row
+	p.selUser = user
 	p.userdelBut.Enable()
+	if p.admAL&api.ALuser != 0 {
+		p.walletBut.Enable()
+		p.mrtpBut.Enable()
+		p.accessBut.Enable()
+	}
+	log.Printf("selected '%s'", user.Email)
 }
 
 func (p *MainPage) OnCellUnselect() {
-	p.selected = -1
+	p.selIdx = -1
+	p.selUser = nil
 	p.userdelBut.Disable()
+	p.walletBut.Disable()
+	p.mrtpBut.Disable()
+	p.accessBut.Disable()
+	log.Println("unselect user")
 }
 
 func (p *MainPage) OnUserAdd(w fyne.Window) {
 	var emailEdt = widget.NewEntry()
-	emailEdt.Validator = EmailValidator()
+	emailEdt.Validator = EmailValidator
 	emailEdt.PlaceHolder = "test@example.com"
 	var items = []*widget.FormItem{
 		{Text: "Email", Widget: emailEdt, HintText: "Email of registered user"},
 	}
 	var dlg = dialog.NewForm("Registered email", "Add", "Cancel", items, func(b bool) {
 		var err error
-		var user api.User
 		if !b {
 			return
 		}
+		var user api.User
 		if user, _, err = api.ReqSignIs(emailEdt.Text); err != nil {
 			log.Printf("can not detect user '%s'", emailEdt.Text)
 			return
@@ -341,13 +368,14 @@ func (p *MainPage) OnUserAdd(w fyne.Window) {
 		api.Users[emailEdt.Text] = &user
 		p.userTable.Refresh()
 		cfg.SaveUserList()
+		log.Printf("user '%s' added to list", emailEdt.Text)
 	}, w)
 	dlg.Resize(fyne.Size{Width: 400})
 	dlg.Show()
 }
 
 func (p *MainPage) OnUserRemove(w fyne.Window) {
-	var email = cfg.UserList[p.selected]
+	var email = cfg.UserList[p.selIdx]
 	var dlg = dialog.NewConfirm(
 		"Confirm to remove",
 		fmt.Sprintf("Confirm to remove user with email '%s' from the list. It will be removed from the list only and remains in the database.", email),
@@ -355,13 +383,84 @@ func (p *MainPage) OnUserRemove(w fyne.Window) {
 			if !confirm {
 				return
 			}
-			cfg.UserList = append(cfg.UserList[:p.selected], cfg.UserList[p.selected+1:]...)
+			cfg.UserList = append(cfg.UserList[:p.selIdx], cfg.UserList[p.selIdx+1:]...)
 			delete(api.Users, email)
 			p.userTable.Refresh()
 			cfg.SaveUserList()
+			log.Printf("user '%s' removed from list", email)
 		}, w)
 	dlg.SetDismissText("Cancel")
 	dlg.SetConfirmText("Remove")
+	dlg.Show()
+}
+
+func (p *MainPage) OnUserWallet(w fyne.Window) {
+	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
+		return
+	}
+	var walletEdt = widget.NewEntry()
+	walletEdt.Validator = validation.NewRegexp(walletRx, "not a valid sum")
+	var items = []*widget.FormItem{
+		{Text: "Sum", Widget: walletEdt, HintText: "Sum to add to user balance"},
+	}
+	var dlg = dialog.NewForm("Balance replenishment", "Add", "Cancel", items, func(b bool) {
+		if !b {
+			return
+		}
+		var err error
+		var sum, wallet float64
+		if sum, err = strconv.ParseFloat(walletEdt.Text, 64); err != nil {
+			log.Printf("can not parse balance sum '%s'", walletEdt.Text)
+			return
+		}
+		if wallet, err = api.ReqWalletAdd(p.selcid, p.selUser.UID, sum); err != nil {
+			log.Printf("can not add sum '%g' to user balance", sum)
+			return
+		}
+		var props, _ = p.selUser.GetProps(p.selcid)
+		props.Wallet = wallet
+		p.selUser.SetProps(p.selcid, props)
+		p.userTable.Refresh()
+		log.Printf("added '%g' to balance, wallet is '%g'", sum, wallet)
+	}, w)
+	dlg.Resize(fyne.Size{Width: 240})
+	dlg.Show()
+}
+
+func (p *MainPage) OnUserMrtp(w fyne.Window) {
+	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
+		return
+	}
+	var mrtpTxt = widget.NewLabel("In games will be selected reels with the percentage closest to the specified master RTP (Return to Player). Master RTP percent expected in range from 85 to 115, in most common cases used 95%. If it given 0 value, club MRTP will be used, or 92.5 if club MRTP zero also.")
+	mrtpTxt.Wrapping = fyne.TextWrapWord
+	var mrtpEdt = widget.NewEntry()
+	mrtpEdt.Validator = MrtpValidator
+	mrtpEdt.PlaceHolder = "92.5"
+	var items = []*widget.FormItem{
+		//{Text: "", Widget: mrtpTxt, HintText: ""},
+		{Text: "MRTP", Widget: mrtpEdt, HintText: "Master RTP percent"},
+	}
+	var dlg = dialog.NewForm("Master Return to Player percent", "Set", "Cancel", items, func(b bool) {
+		if !b {
+			return
+		}
+		var err error
+		var mrtp float64
+		if mrtp, err = strconv.ParseFloat(mrtpEdt.Text, 64); err != nil {
+			log.Printf("can not parse MRTP '%s'", mrtpEdt.Text)
+			return
+		}
+		if err = api.ReqRtpSet(p.selcid, p.selUser.UID, mrtp); err != nil {
+			log.Printf("can not set MRTP '%g' to user", mrtp)
+			return
+		}
+		var props, _ = p.selUser.GetProps(p.selcid)
+		props.MRTP = mrtp
+		p.selUser.SetProps(p.selcid, props)
+		p.userTable.Refresh()
+		log.Printf("set MRTP '%g' to user", mrtp)
+	}, w)
+	dlg.Resize(fyne.Size{Width: 240})
 	dlg.Show()
 }
 
@@ -374,9 +473,9 @@ func (p *MainPage) RefreshContent() {
 
 	var label = p.clubTabs.Selected().Content.(*widget.Label)
 	var bank, fund, deposit = "N/A", "N/A", "N/A"
-	if cural&api.ALclub != 0 {
+	if p.admAL&api.ALclub != 0 {
 		var info api.RetClubInfo
-		if info, err = api.ReqClubInfo(curcid); err != nil {
+		if info, err = api.ReqClubInfo(p.selcid); err != nil {
 			return
 		}
 		bank, fund, deposit = fmt.Sprintf("%.2f", info.Bank), fmt.Sprintf("%.2f", info.Fund), fmt.Sprintf("%.2f", info.Lock)

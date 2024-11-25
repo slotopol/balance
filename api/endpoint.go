@@ -152,6 +152,12 @@ type (
 		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
 		Wallet  float64  `json:"wallet" yaml:"wallet" xml:"wallet"`
 	}
+	ArgWalletAdd struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		UID     uint64   `json:"uid" yaml:"uid" xml:"uid,attr"`
+		Sum     float64  `json:"sum" yaml:"sum" xml:"sum"`
+	}
 	ArgAccessGet struct {
 		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
 		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
@@ -172,6 +178,12 @@ type (
 		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
 		MRTP    float64  `json:"mrtp" yaml:"mrtp" xml:"mrtp"`
 	}
+	ArgRtpSet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		UID     uint64   `json:"uid" yaml:"uid" xml:"uid,attr"`
+		MRTP    float64  `json:"mrtp" yaml:"mrtp" xml:"mrtp"`
+	}
 )
 
 func ReqPropGet(cid, uid uint64) (p Props, err error) {
@@ -190,14 +202,26 @@ func ReqPropGet(cid, uid uint64) (p Props, err error) {
 	return
 }
 
-func ReqWalletGet(cid, uid uint64) (sum float64, err error) {
+func ReqWalletGet(cid, uid uint64) (wallet float64, err error) {
 	var arg = ArgPropGet{
 		CID: cid,
 		UID: uid,
 	}
 	var ret RetWalletGet
 	ret, _, err = HttpPost[ArgPropGet, RetWalletGet]("/prop/wallet/get", Admin.Access, &arg)
-	sum = ret.Wallet
+	wallet = ret.Wallet
+	return
+}
+
+func ReqWalletAdd(cid, uid uint64, sum float64) (wallet float64, err error) {
+	var arg = ArgWalletAdd{
+		CID: cid,
+		UID: uid,
+		Sum: sum,
+	}
+	var ret RetWalletGet
+	ret, _, err = HttpPost[ArgWalletAdd, RetWalletGet]("/prop/wallet/add", Admin.Access, &arg)
+	wallet = ret.Wallet
 	return
 }
 
@@ -222,5 +246,15 @@ func ReqRtpGet(cid, uid uint64, all bool) (mrtp float64, err error) {
 	var ret RetRtpGet
 	ret, _, err = HttpPost[ArgRtpGet, RetRtpGet]("/prop/rtp/get", Admin.Access, &arg)
 	mrtp = ret.MRTP
+	return
+}
+
+func ReqRtpSet(cid, uid uint64, mrtp float64) (err error) {
+	var arg = ArgRtpSet{
+		CID:  cid,
+		UID:  uid,
+		MRTP: mrtp,
+	}
+	_, _, err = HttpPost[ArgRtpSet, struct{}]("/prop/rtp/set", Admin.Access, &arg)
 	return
 }
