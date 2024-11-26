@@ -12,9 +12,9 @@ import (
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/validation"
-	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+
 	"github.com/slotopol/balance/api"
 	cfg "github.com/slotopol/balance/config"
 )
@@ -69,6 +69,25 @@ func FormatAL(al api.AL) string {
 		items = append(items, "admin")
 	}
 	return strings.Join(items, ", ")
+}
+
+func MakeHostValidator() fyne.StringValidator {
+	var rxf = validation.NewRegexp(hostRx, "not a valid host")
+	return func(str string) (err error) {
+		if err = rxf(str); err != nil {
+			return
+		}
+		err = HostValidator(str)
+		return
+	}
+}
+
+func HostValidator(str string) error {
+	var err error
+	if err = api.ReqPing(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func EmailValidator(str string) error {
@@ -144,7 +163,7 @@ func (p *SigninPage) Create(w fyne.Window) {
 	// Form widgets
 	p.host = widget.NewEntry()
 	p.host.SetPlaceHolder("http://example.com:8080")
-	p.host.Validator = validation.NewRegexp(hostRx, "not a valid host")
+	p.host.Validator = MakeHostValidator()
 	p.host.Text = cfg.Credentials.Addr
 	p.email = widget.NewEntry()
 	p.email.SetPlaceHolder("test@example.com")
@@ -219,7 +238,7 @@ func (p *MainPage) Create(w fyne.Window) {
 	p.userdelBut = widget.NewToolbarAction(userdelIconRes, func() { p.OnUserRemove(w) })
 	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { p.OnUserWallet(w) })
 	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { p.OnUserMrtp(w) })
-	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { fmt.Println("access") })
+	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { p.OnUserAccess(w) })
 	p.bankBut = widget.NewToolbarAction(bankIconRes, func() { fmt.Println("bank") })
 	p.logoutBut = widget.NewToolbarAction(logoutIconRes, func() { fmt.Println("logout") })
 	p.loginTxt = NewToolbarLabel("not logined yet")
@@ -315,153 +334,6 @@ func (p *MainPage) Create(w fyne.Window) {
 			nil, nil, nil,
 			p.userTable),
 	)
-}
-
-func (p *MainPage) OnCellSelected(id widget.TableCellID) {
-	if id.Row < 0 || id.Col < 0 {
-		p.OnCellUnselect()
-		return
-	}
-	var user, ok = api.Users[cfg.UserList[id.Row]]
-	if !ok {
-		return
-	}
-	p.selIdx = id.Row
-	p.selUser = user
-	p.userdelBut.Enable()
-	if p.admAL&api.ALuser != 0 {
-		p.walletBut.Enable()
-		p.mrtpBut.Enable()
-		p.accessBut.Enable()
-	}
-	log.Printf("selected '%s'", user.Email)
-}
-
-func (p *MainPage) OnCellUnselect() {
-	p.selIdx = -1
-	p.selUser = nil
-	p.userdelBut.Disable()
-	p.walletBut.Disable()
-	p.mrtpBut.Disable()
-	p.accessBut.Disable()
-	log.Println("unselect user")
-}
-
-func (p *MainPage) OnUserAdd(w fyne.Window) {
-	var emailEdt = widget.NewEntry()
-	emailEdt.Validator = EmailValidator
-	emailEdt.PlaceHolder = "test@example.com"
-	var items = []*widget.FormItem{
-		{Text: "Email", Widget: emailEdt, HintText: "Email of registered user"},
-	}
-	var dlg = dialog.NewForm("Registered email", "Add", "Cancel", items, func(b bool) {
-		var err error
-		if !b {
-			return
-		}
-		var user api.User
-		if user, _, err = api.ReqSignIs(emailEdt.Text); err != nil {
-			log.Printf("can not detect user '%s'", emailEdt.Text)
-			return
-		}
-		cfg.UserList = append(cfg.UserList, emailEdt.Text)
-		api.Users[emailEdt.Text] = &user
-		p.userTable.Refresh()
-		cfg.SaveUserList()
-		log.Printf("user '%s' added to list", emailEdt.Text)
-	}, w)
-	dlg.Resize(fyne.Size{Width: 400})
-	dlg.Show()
-}
-
-func (p *MainPage) OnUserRemove(w fyne.Window) {
-	var email = cfg.UserList[p.selIdx]
-	var dlg = dialog.NewConfirm(
-		"Confirm to remove",
-		fmt.Sprintf("Confirm to remove user with email '%s' from the list. It will be removed from the list only and remains in the database.", email),
-		func(confirm bool) {
-			if !confirm {
-				return
-			}
-			cfg.UserList = append(cfg.UserList[:p.selIdx], cfg.UserList[p.selIdx+1:]...)
-			delete(api.Users, email)
-			p.userTable.Refresh()
-			cfg.SaveUserList()
-			log.Printf("user '%s' removed from list", email)
-		}, w)
-	dlg.SetDismissText("Cancel")
-	dlg.SetConfirmText("Remove")
-	dlg.Show()
-}
-
-func (p *MainPage) OnUserWallet(w fyne.Window) {
-	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
-		return
-	}
-	var walletEdt = widget.NewEntry()
-	walletEdt.Validator = validation.NewRegexp(walletRx, "not a valid sum")
-	var items = []*widget.FormItem{
-		{Text: "Sum", Widget: walletEdt, HintText: "Sum to add to user balance"},
-	}
-	var dlg = dialog.NewForm("Balance replenishment", "Add", "Cancel", items, func(b bool) {
-		if !b {
-			return
-		}
-		var err error
-		var sum, wallet float64
-		if sum, err = strconv.ParseFloat(walletEdt.Text, 64); err != nil {
-			log.Printf("can not parse balance sum '%s'", walletEdt.Text)
-			return
-		}
-		if wallet, err = api.ReqWalletAdd(p.selcid, p.selUser.UID, sum); err != nil {
-			log.Printf("can not add sum '%g' to user balance", sum)
-			return
-		}
-		var props, _ = p.selUser.GetProps(p.selcid)
-		props.Wallet = wallet
-		p.selUser.SetProps(p.selcid, props)
-		p.userTable.Refresh()
-		log.Printf("added '%g' to balance, wallet is '%g'", sum, wallet)
-	}, w)
-	dlg.Resize(fyne.Size{Width: 240})
-	dlg.Show()
-}
-
-func (p *MainPage) OnUserMrtp(w fyne.Window) {
-	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
-		return
-	}
-	var mrtpTxt = widget.NewLabel("In games will be selected reels with the percentage closest to the specified master RTP (Return to Player). Master RTP percent expected in range from 85 to 115, in most common cases used 95%. If it given 0 value, club MRTP will be used, or 92.5 if club MRTP zero also.")
-	mrtpTxt.Wrapping = fyne.TextWrapWord
-	var mrtpEdt = widget.NewEntry()
-	mrtpEdt.Validator = MrtpValidator
-	mrtpEdt.PlaceHolder = "92.5"
-	var items = []*widget.FormItem{
-		//{Text: "", Widget: mrtpTxt, HintText: ""},
-		{Text: "MRTP", Widget: mrtpEdt, HintText: "Master RTP percent"},
-	}
-	var dlg = dialog.NewForm("Master Return to Player percent", "Set", "Cancel", items, func(b bool) {
-		if !b {
-			return
-		}
-		var err error
-		var mrtp float64
-		if mrtp, err = strconv.ParseFloat(mrtpEdt.Text, 64); err != nil {
-			log.Printf("can not parse MRTP '%s'", mrtpEdt.Text)
-			return
-		}
-		if err = api.ReqRtpSet(p.selcid, p.selUser.UID, mrtp); err != nil {
-			log.Printf("can not set MRTP '%g' to user", mrtp)
-			return
-		}
-		var props, _ = p.selUser.GetProps(p.selcid)
-		props.MRTP = mrtp
-		p.selUser.SetProps(p.selcid, props)
-		p.userTable.Refresh()
-		log.Printf("set MRTP '%g' to user", mrtp)
-	}, w)
-	dlg.Resize(fyne.Size{Width: 240})
-	dlg.Show()
 }
 
 // Refreshes visible content of users list. Fetches data from server

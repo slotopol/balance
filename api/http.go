@@ -3,10 +3,13 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 
 	cfg "github.com/slotopol/balance/config"
 )
@@ -19,6 +22,36 @@ type AjaxErr struct {
 
 func (err AjaxErr) Error() string {
 	return fmt.Sprintf("what: %s, code: %d", err.What, err.Code)
+}
+
+var (
+	ErrAlienServer = errors.New("server is not slotopol server")
+)
+
+func HttpGet[Tr any](path string, token string, arg url.Values) (ret Tr, status int, err error) {
+	defer func() {
+		if err != nil {
+			log.Printf("error on api call '%s': %s", path, err.Error())
+		}
+	}()
+	var fullurl = cfg.Credentials.Addr + path
+	if arg != nil {
+		var u, _ = url.ParseRequestURI(fullurl)
+		var q = u.Query()
+		for k, v := range arg {
+			q[k] = v
+		}
+		fullurl = u.String()
+	}
+	var req *http.Request
+	if req, err = http.NewRequest("GET", fullurl, nil); err != nil {
+		return
+	}
+	req.Header.Add("Accept", "application/json")
+	if token != "" {
+		req.Header.Add("Authorization", "Bearer "+token)
+	}
+	return DoReq[Tr](req)
 }
 
 func HttpPost[Ta, Tr any](path string, token string, arg *Ta) (ret Tr, status int, err error) {
@@ -42,14 +75,24 @@ func HttpPost[Ta, Tr any](path string, token string, arg *Ta) (ret Tr, status in
 	if token != "" {
 		req.Header.Add("Authorization", "Bearer "+token)
 	}
+	return DoReq[Tr](req)
+}
 
+func DoReq[Tr any](req *http.Request) (ret Tr, status int, err error) {
 	var resp *http.Response
 	if resp, err = http.DefaultClient.Do(req); err != nil {
 		return
 	}
 	defer resp.Body.Close()
 
+	if vers := resp.Header.Get("Server"); !strings.HasPrefix(vers, "slotopol/") {
+		err = ErrAlienServer
+		return
+	}
+
 	status = resp.StatusCode
+
+	var b []byte
 	if b, err = io.ReadAll(resp.Body); err != nil {
 		return
 	}

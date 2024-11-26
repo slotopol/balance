@@ -7,6 +7,11 @@ import (
 
 var Admin AuthResp
 
+func ReqPing() (err error) {
+	_, _, err = HttpGet[struct{}]("/ping", "", nil)
+	return
+}
+
 type (
 	ArgSignIs struct {
 		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
@@ -60,7 +65,7 @@ func ReqSignIn(email, secret string) (ret AuthResp, err error) {
 }
 
 func ReqRefresh() (ret AuthResp, err error) {
-	ret, _, err = HttpPost[any, AuthResp]("/refresh", Admin.Access, nil)
+	ret, _, err = HttpGet[AuthResp]("/refresh", Admin.Access, nil)
 	return
 }
 
@@ -168,6 +173,12 @@ type (
 		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
 		Access  AL       `json:"access" yaml:"access" xml:"access"`
 	}
+	ArgAccessSet struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		UID     uint64   `json:"uid" yaml:"uid" xml:"uid,attr"`
+		Access  AL       `json:"access" yaml:"access" xml:"access"`
+	}
 	ArgRtpGet struct {
 		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
 		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
@@ -234,6 +245,16 @@ func ReqAccessGet(cid, uid uint64, all bool) (al AL, err error) {
 	var ret RetAccessGet
 	ret, _, err = HttpPost[ArgAccessGet, RetAccessGet]("/prop/al/get", Admin.Access, &arg)
 	al = ret.Access
+	return
+}
+
+func ReqAccessSet(cid, uid uint64, al AL) (err error) {
+	var arg = ArgAccessSet{
+		CID:    cid,
+		UID:    uid,
+		Access: al,
+	}
+	_, _, err = HttpPost[ArgAccessSet, struct{}]("/prop/al/set", Admin.Access, &arg)
 	return
 }
 
