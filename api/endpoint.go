@@ -126,6 +126,20 @@ type (
 		Rate    float64  `json:"rate" yaml:"rate" xml:"rate"` // jackpot rate for games with progressive jackpot
 		MRTP    float64  `json:"mrtp" yaml:"mrtp" xml:"mrtp"` // master RTP
 	}
+	ArgClubCashin struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"arg"`
+		CID     uint64   `json:"cid" yaml:"cid" xml:"cid,attr"`
+		BankSum float64  `json:"banksum" yaml:"banksum" xml:"banksum"`
+		FundSum float64  `json:"fundsum" yaml:"fundsum" xml:"fundsum"`
+		LockSum float64  `json:"locksum" yaml:"locksum" xml:"locksum"`
+	}
+	RetClubCashin struct {
+		XMLName xml.Name `json:"-" yaml:"-" xml:"ret"`
+		BID     uint64   `json:"bid" yaml:"bid" xml:"bid,attr"`
+		Bank    float64  `json:"bank" yaml:"bank" xml:"bank"`
+		Fund    float64  `json:"fund" yaml:"fund" xml:"fund"`
+		Lock    float64  `json:"lock" yaml:"lock" xml:"lock"`
+	}
 )
 
 func ReqClubList() (ret RetClubList, err error) {
@@ -138,6 +152,17 @@ func ReqClubInfo(cid uint64) (ret RetClubInfo, err error) {
 		CID: cid,
 	}
 	ret, _, err = HttpPost[ArgClubInfo, RetClubInfo]("/club/info", Admin.Access, &arg)
+	return
+}
+
+func ClubCashin(cid uint64, bsum, fsum, lsum float64) (ret RetClubCashin, err error) {
+	var arg = ArgClubCashin{
+		CID:     cid,
+		BankSum: bsum,
+		FundSum: fsum,
+		LockSum: lsum,
+	}
+	ret, _, err = HttpPost[ArgClubCashin, RetClubCashin]("/club/cashin", Admin.Access, &arg)
 	return
 }
 

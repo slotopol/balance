@@ -252,3 +252,53 @@ func (p *MainPage) OnUserAccess(w fyne.Window) {
 	dlg.Resize(fyne.Size{Width: 240})
 	dlg.Show()
 }
+
+func (p *MainPage) OnClubBank(w fyne.Window) {
+	if p.admAL&api.ALclub == 0 {
+		return
+	}
+	var clubname = p.clubTabs.Selected().Text
+	var clubTxt = widget.NewLabel(clubname)
+	var bankEdt = widget.NewEntry()
+	bankEdt.Validator = validation.NewRegexp(walletRx, "not a valid sum")
+	var fundEdt = widget.NewEntry()
+	fundEdt.Validator = validation.NewRegexp(walletRx, "not a valid sum")
+	var lockEdt = widget.NewEntry()
+	lockEdt.Validator = validation.NewRegexp(walletRx, "not a valid sum")
+	var items = []*widget.FormItem{
+		{Text: "Club name", Widget: clubTxt, HintText: ""},
+		{Text: "Bank sum", Widget: bankEdt, HintText: "Sum to add to club bank"},
+		{Text: "Fund sum", Widget: fundEdt, HintText: "Sum to add to club jackpot fund"},
+		{Text: "Lock sum", Widget: lockEdt, HintText: "Sum to add to club deposit"},
+	}
+	var dlg = dialog.NewForm("Bank transfer", "Add", "Cancel", items, func(b bool) {
+		if !b {
+			return
+		}
+		var err error
+		var bsum, fsum, lsum float64
+		var ret api.RetClubCashin
+		if bsum, err = strconv.ParseFloat(bankEdt.Text, 64); err != nil {
+			log.Printf("can not parse club bank sum '%s'", bankEdt.Text)
+			return
+		}
+		if fsum, err = strconv.ParseFloat(fundEdt.Text, 64); err != nil {
+			log.Printf("can not parse club bank sum '%s'", fundEdt.Text)
+			return
+		}
+		if lsum, err = strconv.ParseFloat(lockEdt.Text, 64); err != nil {
+			log.Printf("can not parse club bank sum '%s'", lockEdt.Text)
+			return
+		}
+		if ret, err = api.ClubCashin(p.selcid, bsum, fsum, lsum); err != nil {
+			log.Printf("can not add sum to bank '%g', jackpot fund '%g', deposit '%g'", bsum, fsum, lsum)
+			return
+		}
+		log.Printf("add to bank '%g', to jackpot fund '%g', to deposit '%g'", bsum, fsum, lsum)
+		var label = p.clubTabs.Selected().Content.(*widget.Label)
+		label.SetText(fmt.Sprintf("bank: %.2f, jackpot fund: %.2f, deposit: %.2f", ret.Bank, ret.Fund, ret.Lock))
+		label.Refresh()
+	}, w)
+	dlg.Resize(fyne.Size{Width: 240})
+	dlg.Show()
+}

@@ -239,8 +239,8 @@ func (p *MainPage) Create(w fyne.Window) {
 	p.walletBut = widget.NewToolbarAction(walletIconRes, func() { p.OnUserWallet(w) })
 	p.mrtpBut = widget.NewToolbarAction(percentIconRes, func() { p.OnUserMrtp(w) })
 	p.accessBut = widget.NewToolbarAction(accessIconRes, func() { p.OnUserAccess(w) })
-	p.bankBut = widget.NewToolbarAction(bankIconRes, func() { fmt.Println("bank") })
-	p.logoutBut = widget.NewToolbarAction(logoutIconRes, func() { fmt.Println("logout") })
+	p.bankBut = widget.NewToolbarAction(bankIconRes, func() { p.OnClubBank(w) })
+	p.logoutBut = widget.NewToolbarAction(logoutIconRes, nil)
 	p.loginTxt = NewToolbarLabel("not logined yet")
 
 	// Toolbar frame

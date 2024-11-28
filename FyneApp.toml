@@ -3,7 +3,7 @@
   Name = "balance"
   ID = "slotopol.balance"
   Version = "0.0.0"
-  Build = 12
+  Build = 13
 
 [Development]
   HelperText = "This binary was built with debug symbols"

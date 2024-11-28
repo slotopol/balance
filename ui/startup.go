@@ -39,6 +39,12 @@ func (f *Frame) MakeClubList() (err error) {
 			return
 		}
 
+		if f.admAL&api.ALclub != 0 {
+			f.bankBut.Enable()
+		} else {
+			f.bankBut.Disable()
+		}
+
 		f.RefreshContent()
 	}
 	f.clubTabs.OnSelected(f.clubTabs.Selected())
@@ -116,30 +122,28 @@ func (f *Frame) StartupChain() {
 }
 
 func (f *Frame) submitSignin() {
-	if api.Admin.Email != f.email.Text {
-		var err error
-		if api.Admin, err = api.ReqSignIn(f.email.Text, f.secret.Text); err != nil {
-			var msg string
-			var aerr api.AjaxErr
-			if errors.As(err, &aerr) {
-				msg = aerr.What
-			} else {
-				msg = err.Error()
-			}
-			f.errmsg.SetText(fmt.Sprintf("can not sign in with given credentials, %s", msg))
-			return
+	var err error
+	if api.Admin, err = api.ReqSignIn(f.email.Text, f.secret.Text); err != nil {
+		var msg string
+		var aerr api.AjaxErr
+		if errors.As(err, &aerr) {
+			msg = aerr.What
+		} else {
+			msg = err.Error()
 		}
-		log.Printf("signed as '%s'", cfg.Credentials.Email)
+		f.errmsg.SetText(fmt.Sprintf("can not sign in with given credentials, %s", msg))
+		return
+	}
+	log.Printf("signed as '%s'", cfg.Credentials.Email)
 
-		var save = cfg.Credentials.Addr != f.host.Text ||
-			cfg.Credentials.Email != f.email.Text ||
-			cfg.Credentials.Secret != f.secret.Text
-		if save {
-			cfg.Credentials.Addr = f.host.Text
-			cfg.Credentials.Email = f.email.Text
-			cfg.Credentials.Secret = f.secret.Text
-			cfg.SaveCredentials()
-		}
+	var save = cfg.Credentials.Addr != f.host.Text ||
+		cfg.Credentials.Email != f.email.Text ||
+		cfg.Credentials.Secret != f.secret.Text
+	if save {
+		cfg.Credentials.Addr = f.host.Text
+		cfg.Credentials.Email = f.email.Text
+		cfg.Credentials.Secret = f.secret.Text
+		cfg.SaveCredentials()
 	}
 
 	f.SigninPage.form.OnCancel = func() {
@@ -150,6 +154,11 @@ func (f *Frame) submitSignin() {
 	f.loginTxt.SetText(cfg.Credentials.Email)
 
 	go f.StartupChain()
+}
+
+func (f *Frame) logout() {
+	f.Window.SetContent(f.signinPage)
+	log.Println("logout")
 }
 
 func (f *Frame) CreateWindow(a fyne.App) {
@@ -165,6 +174,8 @@ func (f *Frame) CreateWindow(a fyne.App) {
 
 	f.SigninPage.form.OnSubmit = f.submitSignin
 	f.SigninPage.form.Refresh()
+	f.MainPage.logoutBut.OnActivated = f.logout
+	f.toolbar.Refresh()
 	f.userTable.SetColumnWidth(0, 180) // email
 	f.userTable.SetColumnWidth(1, 100) // wallet
 	f.userTable.SetColumnWidth(2, 50)  // mtrp
