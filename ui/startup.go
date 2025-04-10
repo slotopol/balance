@@ -39,7 +39,7 @@ func (f *Frame) MakeClubList() (err error) {
 			return
 		}
 
-		if f.admAL&api.ALclub != 0 {
+		if f.admAL&api.ALmaster != 0 {
 			f.bankBut.Enable()
 		} else {
 			f.bankBut.Disable()

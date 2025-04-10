@@ -53,16 +53,16 @@ func GetProp(cid uint64, user *api.User) (p api.Props, err error) {
 
 func FormatAL(al api.AL) string {
 	var items = make([]string, 0, 5)
-	if al&api.ALmem != 0 {
+	if al&api.ALmember != 0 {
 		items = append(items, "member")
 	}
-	if al&api.ALgame != 0 {
+	if al&api.ALdealer != 0 {
 		items = append(items, "game")
 	}
-	if al&api.ALuser != 0 {
+	if al&api.ALbooker != 0 {
 		items = append(items, "user")
 	}
-	if al&api.ALclub != 0 {
+	if al&api.ALmaster != 0 {
 		items = append(items, "club")
 	}
 	if al&api.ALadmin != 0 {
@@ -281,7 +281,7 @@ func (p *MainPage) Create(w fyne.Window) {
 				label.SetText(cfg.UserList[id.Row])
 				return
 			}
-			if p.admAL&api.ALuser == 0 {
+			if p.admAL&api.ALbooker == 0 {
 				label.SetText("N/A")
 				return
 			}
@@ -341,18 +341,22 @@ func (p *MainPage) Create(w fyne.Window) {
 func (p *MainPage) RefreshContent() {
 	var err error
 
-	p.userTable.Refresh()
+	fyne.Do(func() {
+		p.userTable.Refresh()
+	})
 
 	var label = p.clubTabs.Selected().Content.(*widget.Label)
 	var bank, fund, deposit = "N/A", "N/A", "N/A"
-	if p.admAL&api.ALclub != 0 {
+	if p.admAL&api.ALmaster != 0 {
 		var info api.RetClubInfo
 		if info, err = api.ReqClubInfo(p.selcid); err != nil {
 			return
 		}
 		bank, fund, deposit = fmt.Sprintf("%.2f", info.Bank), fmt.Sprintf("%.2f", info.Fund), fmt.Sprintf("%.2f", info.Lock)
 	}
-	label.SetText(fmt.Sprintf("bank: %s, jackpot fund: %s, deposit: %s", bank, fund, deposit))
+	fyne.Do(func() {
+		label.SetText(fmt.Sprintf("bank: %s, jackpot fund: %s, deposit: %s", bank, fund, deposit))
+	})
 }
 
 func Lifecycle(a fyne.App) {

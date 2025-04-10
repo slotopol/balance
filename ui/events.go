@@ -26,7 +26,7 @@ func (p *MainPage) OnCellSelected(id widget.TableCellID) {
 	p.selIdx = id.Row
 	p.selUser = user
 	p.userdelBut.Enable()
-	if p.admAL&api.ALuser != 0 {
+	if p.admAL&api.ALbooker != 0 {
 		p.walletBut.Enable()
 		p.mrtpBut.Enable()
 	}
@@ -94,7 +94,7 @@ func (p *MainPage) OnUserRemove(w fyne.Window) {
 }
 
 func (p *MainPage) OnUserWallet(w fyne.Window) {
-	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
+	if p.selIdx < 0 || p.admAL&api.ALbooker == 0 {
 		return
 	}
 	var userTxt = widget.NewLabel(p.selUser.Email)
@@ -129,7 +129,7 @@ func (p *MainPage) OnUserWallet(w fyne.Window) {
 }
 
 func (p *MainPage) OnUserMrtp(w fyne.Window) {
-	if p.selIdx < 0 || p.admAL&api.ALuser == 0 {
+	if p.selIdx < 0 || p.admAL&api.ALbooker == 0 {
 		return
 	}
 	var userTxt = widget.NewLabel(p.selUser.Email)
@@ -173,30 +173,30 @@ func (p *MainPage) OnUserAccess(w fyne.Window) {
 	var userTxt = widget.NewLabel(p.selUser.Email)
 	var memberChk = widget.NewCheck("user have access to club", func(is bool) {
 		if is {
-			access |= api.ALmem
+			access |= api.ALmember
 		} else {
-			access &^= api.ALmem
+			access &^= api.ALmember
 		}
 	})
-	var gameChk = widget.NewCheck("club game settings and users gameplay", func(is bool) {
+	var dealerChk = widget.NewCheck("club game settings and users gameplay", func(is bool) {
 		if is {
-			access |= api.ALgame
+			access |= api.ALdealer
 		} else {
-			access &^= api.ALgame
+			access &^= api.ALdealer
 		}
 	})
-	var userChk = widget.NewCheck("user properties and manage user money", func(is bool) {
+	var bookerChk = widget.NewCheck("user properties and manage user money", func(is bool) {
 		if is {
-			access |= api.ALuser
+			access |= api.ALbooker
 		} else {
-			access &^= api.ALuser
+			access &^= api.ALbooker
 		}
 	})
-	var clubChk = widget.NewCheck("club bank, fund, deposit", func(is bool) {
+	var masterChk = widget.NewCheck("club bank, fund, deposit", func(is bool) {
 		if is {
-			access |= api.ALclub
+			access |= api.ALmaster
 		} else {
-			access &^= api.ALclub
+			access &^= api.ALmaster
 		}
 	})
 	var adminChk = widget.NewCheck("change same access levels to others", func(is bool) {
@@ -206,22 +206,22 @@ func (p *MainPage) OnUserAccess(w fyne.Window) {
 			access &^= api.ALadmin
 		}
 	})
-	memberChk.Checked = access&api.ALmem != 0
-	gameChk.Checked = access&api.ALgame != 0
-	userChk.Checked = access&api.ALuser != 0
-	clubChk.Checked = access&api.ALclub != 0
+	memberChk.Checked = access&api.ALmember != 0
+	dealerChk.Checked = access&api.ALdealer != 0
+	bookerChk.Checked = access&api.ALbooker != 0
+	masterChk.Checked = access&api.ALmaster != 0
 	adminChk.Checked = access&api.ALadmin != 0
-	if p.admAL&api.ALmem == 0 {
+	if p.admAL&api.ALmember == 0 {
 		memberChk.Disable()
 	}
-	if p.admAL&api.ALgame == 0 {
-		gameChk.Disable()
+	if p.admAL&api.ALdealer == 0 {
+		dealerChk.Disable()
 	}
-	if p.admAL&api.ALuser == 0 {
-		userChk.Disable()
+	if p.admAL&api.ALbooker == 0 {
+		bookerChk.Disable()
 	}
-	if p.admAL&api.ALclub == 0 {
-		clubChk.Disable()
+	if p.admAL&api.ALmaster == 0 {
+		masterChk.Disable()
 	}
 	if p.admAL&api.ALadmin == 0 {
 		adminChk.Disable()
@@ -229,9 +229,9 @@ func (p *MainPage) OnUserAccess(w fyne.Window) {
 	var items = []*widget.FormItem{
 		{Text: "User", Widget: userTxt},
 		{Text: "member", Widget: memberChk},
-		{Text: "game", Widget: gameChk},
-		{Text: "user", Widget: userChk},
-		{Text: "club", Widget: clubChk},
+		{Text: "dealer", Widget: dealerChk},
+		{Text: "booker", Widget: bookerChk},
+		{Text: "master", Widget: masterChk},
 		{Text: "admin", Widget: adminChk},
 	}
 	var dlg = dialog.NewForm("Access rights", "Set", "Cancel", items, func(b bool) {
@@ -254,7 +254,7 @@ func (p *MainPage) OnUserAccess(w fyne.Window) {
 }
 
 func (p *MainPage) OnClubBank(w fyne.Window) {
-	if p.admAL&api.ALclub == 0 {
+	if p.admAL&api.ALmaster == 0 {
 		return
 	}
 	var clubname = p.clubTabs.Selected().Text
